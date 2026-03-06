@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestão de Boleias</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #ffffff;
+  --surface: #f5f7fa;
+  --surface2: #eaecf2;
+  --border: #dde1ea;
+  --border2: #c8cdd9;
+  --accent: #2563eb;
+  --accent-dim: rgba(37,99,235,0.08);
+  --red: #dc2626;
+  --green: #16a34a;
+  --text: #1a1f2e;
+  --muted: #8b92a8;
+  --muted2: #5a6180;
+  --mono: 'Plus Jakarta Sans', sans-serif;
+  --display: 'Syne', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  min-height: 100vh;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 40% at 5% 0%, rgba(37,99,235,0.04) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 30% at 95% 100%, rgba(37,99,235,0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 28px 16px 40px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── HEADER ── */
+header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 40px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.logo {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+.logo span { color: var(--accent); }
+.tagline {
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 5px;
+}
+
+.date-badge {
+  font-size: 11px;
+  color: var(--muted2);
+  letter-spacing: 0.5px;
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  border-radius: 20px;
+  align-self: center;
+}
+
+/* ── SECTIONS ── */
+.section-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── CARD ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+/* ── GRID ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.grid-km { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: end; }
+
+@media(max-width:600px) {
+  .grid-2, .grid-3, .grid-km { grid-template-columns: 1fr; }
+  .wrap { padding: 16px 12px 32px; }
+  .logo { font-size: 20px; }
+  .tagline { font-size: 9px; }
+  header { margin-bottom: 24px; padding-bottom: 16px; }
+  .card { padding: 14px; }
+  .price-row { flex-direction: column; }
+  .price-box { min-width: unset; }
+  .price-box .val { font-size: 18px; }
+  .total-valor { font-size: 18px; }
+  .totals-card { padding: 14px; }
+  .totals-grid { gap: 10px; }
+  .total-item { min-width: 110px; padding: 10px 14px; }
+  .btn-row { flex-direction: column; width: 100%; }
+  .btn-row .btn { width: 100%; justify-content: center; }
+  .section-label { margin-bottom: 10px; }
+  .mt { margin-top: 24px; }
+
+  /* Tabela responsiva: layout em cards */
+  .table-wrap { border: none; border-radius: 0; }
+  table { table-layout: auto; }
+  table, thead, tbody, th, td, tr { display: block; }
+  colgroup { display: none; }
+  thead { display: none; }
+  tbody tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    padding: 12px;
+  }
+  td { border-bottom: none; padding: 0; }
+  .td-dia {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .td-input { margin-top: 6px; }
+  .td-input textarea {
+    background: #ffffff;
+    border: 1px solid var(--border2);
+    border-left: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 9px 12px;
+  }
+  .td-input textarea:focus {
+    border-color: var(--accent);
+    border-left-color: var(--accent);
+  }
+  .td-input::before {
+    content: attr(data-label);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 4px;
+    margin-top: 4px;
+  }
+  .td-gasoleo { margin-top: 10px; padding: 10px 0 0; border-top: 1px solid var(--border); }
+  .td-nota { margin-top: 6px; }
+}
+
+/* ── FIELD ── */
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+select, input[type="number"] {
+  background: #ffffff;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 9px 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.18s;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b92a8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+}
+select:focus, input[type="number"]:focus { border-color: var(--accent); }
+select:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── PRICE BOX ── */
+.price-row {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.price-box {
+  flex: 1;
+  min-width: 160px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.price-box .lbl {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.price-box .val {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+.price-box .sub {
+  font-size: 10px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── BUTTON ── */
+.btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-accent { background: var(--accent); color: #ffffff; font-weight: 500; }
+.btn-accent:hover { background: #1d4ed8; transform: translateY(-1px); }
+.btn-accent:active { transform: translateY(0); }
+.btn-ghost {
+  background: transparent;
+  color: var(--muted2);
+  border: 1px solid var(--border2);
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ── TABLE ── */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  font-size: 12px;
+  table-layout: fixed;
+}
+colgroup .col-dia   { width: 90px; }
+colgroup .col-quem  { width: 18%; }
+colgroup .col-ida   { width: 22%; }
+colgroup .col-volta { width: 22%; }
+colgroup .col-gas   { width: auto; }
+colgroup .col-nota  { width: 12%; }
+
+thead tr {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border2);
+}
+
+th {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 11px 14px;
+  text-align: left;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+td {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td { border-bottom: none; }
+
+tbody tr {
+  transition: background 0.15s;
+}
+tbody tr:hover { background: rgba(37,99,235,0.04); }
+
+.td-dia {
+  padding: 12px 14px;
+  color: var(--muted2);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.td-input textarea {
+  background: transparent;
+  border: none;
+  border-left: 1px solid transparent;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 12px 14px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  resize: none;
+  overflow: hidden;
+  min-height: 38px;
+  line-height: 1.4;
+  display: block;
+}
+.td-input textarea:focus {
+  border-left-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.td-gasoleo {
+  padding: 10px 14px;
+  min-width: 150px;
+}
+
+.gasoleo-lines { display: flex; flex-direction: column; gap: 4px; }
+
+.gasoleo-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.gasoleo-nome { color: var(--muted2); }
+.gasoleo-valor { color: var(--green); font-weight: 500; }
+.gasoleo-detalhe {
+  font-size: 10px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.td-nota textarea {
+  min-height: 38px;
+}
+
+/* ── TOTALS ── */
+.totals-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.totals-grid {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.total-item {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 12px 18px;
+  min-width: 140px;
+}
+.total-nome {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.total-valor {
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+}
+
+/* ── STATUS ── */
+.status {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+.status.ok { color: var(--green); font-style: normal; }
+.status.err { color: var(--red); font-style: normal; }
+
+/* ── LOADING ── */
+.loading {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── DIVIDER ── */
+.mt { margin-top: 32px; }
+
+/* ── TABLET ── */
+@media(max-width:768px) and (min-width:601px) {
+  .grid-3 { grid-template-columns: 1fr 1fr; }
+  .grid-3 > :last-child { grid-column: 1 / -1; }
+  .wrap { padding: 24px 14px 36px; }
+  .price-box .val { font-size: 18px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div>
+      <div class="logo">Bolei<span>as</span></div>
+      <div class="tagline">Gestão de Viagens · TERMOAVE</div>
+    </div>
+    <div class="date-badge" id="dateBadge">—</div>
+  </header>
+
+  <!-- SECÇÃO: COMBUSTÍVEL -->
+  <div class="section-label">Combustível</div>
+  <div class="card">
+    <div class="grid-3">
+      <div class="field">
+        <label>Tipo</label>
+        <select id="selComb" onchange="onCombChange()">
+          <option value="">— carregar —</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Distrito</label>
+        <select id="selDistrito" disabled onchange="onDistritoChange()">
+          <option value="">— escolhe combustível —</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Município</label>
+        <select id="selMunicipio" disabled onchange="onMunicipioChange()">
+          <option value="">— escolhe distrito —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:12px">
+      <div class="field">
+        <label>Marca</label>
+        <select id="selMarca" disabled onchange="onMarcaChange()">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Posto</label>
+        <select id="selPosto" disabled onchange="onPostoChange()">
+          <option value="">— escolhe município —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="price-row">
+      <div class="price-box">
+        <div class="lbl">Preço Diesel</div>
+        <div class="val" id="precoValor">—</div>
+        <div class="sub" id="precoData"></div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-accent" onclick="atualizarPreco()">Atualizar Preço</button>
+        <span class="status" id="precoStatus"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECÇÃO: PARÂMETROS -->
+  <div class="section-label mt">Parâmetros</div>
+  <div class="card">
+    <div class="grid-km">
+      <div class="field">
+        <label>Km Viagem (total)</label>
+        <input type="number" id="kmViagem" value="100" min="1" oninput="calcularTudo()">
+      </div>
+      <div class="field">
+        <label>Consumo (L/100km)</label>
+        <input type="number" id="consumoCarro" value="5.5" step="0.1" min="0.1" oninput="calcularTudo()">
+      </div>
+      <div class="price-box" style="min-width:unset;">
+        <div class="lbl">Custo por sentido</div>
+        <div class="val" id="custoPorSentido">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECÇÃO: SEMANA -->
+  <div class="section-label mt">Semana</div>
+  <div class="table-wrap">
+    <table>
+      <colgroup>
+        <col class="col-dia">
+        <col class="col-quem">
+        <col class="col-ida">
+        <col class="col-volta">
+        <col class="col-gas">
+        <col class="col-nota">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Dia</th>
+          <th>Quem Leva</th>
+          <th>Ida</th>
+          <th>Volta</th>
+          <th>Gasóleo (€)</th>
+          <th>Nota</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaBody"></tbody>
+    </table>
+  </div>
+
+  <!-- TOTAIS -->
+  <div class="totals-card">
+    <div class="section-label" style="margin-bottom:0">Total Semana</div>
+    <div class="totals-grid" id="totaisGrid">
+      <div class="status">Preenche a tabela para ver os totais.</div>
+    </div>
+  </div>
+
+  <!-- ACÇÕES -->
+  <div class="btn-row" style="margin-top:20px">
+    <button class="btn btn-ghost" onclick="limparSemana()">Limpar Semana</button>
+    <button class="btn btn-ghost" onclick="copiarResumo()">Copiar Resumo</button>
+  </div>
+
+</div>
+
+<script>
+const BASE = "https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb";
+
+// ── Estado ──
+let allMunicipios = [];
+let allMarcas = [];
+let postosList = []; // [{id, nome}]
+let fuelPrice = null;
+let dias = ["Segunda","Terça","Quarta","Quinta","Sexta"];
+
+// ── Init ──
+window.onload = async () => {
+  document.getElementById('dateBadge').textContent = new Date().toLocaleDateString('pt-PT', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  buildTabela();
+  carregarDados();
+  autoResizeAll();
+  await carregarFiltros();
+  calcularTudo();
+};
+
+// ── API fetch helper ──
+async function api(endpoint) {
+  const r = await fetch(BASE + endpoint);
+  const j = await r.json();
+  return j.resultado;
+}
+
+// ── Carregar filtros ──
+async function carregarFiltros() {
+  setStatus('precoStatus', '', '');
+
+  const [combs, distritos, municipios, marcas] = await Promise.all([
+    api('/GetTiposCombustiveis'),
+    api('/GetDistritos'),
+    api('/GetMunicipios'),
+    api('/GetMarcas'),
+  ]);
+
+  allMunicipios = municipios;
+  allMarcas = marcas;
+
+  // Combustíveis
+  const selC = document.getElementById('selComb');
+  selC.innerHTML = '<option value="">— escolhe —</option>';
+  combs.forEach(c => selC.innerHTML += `<option value="${c.Id}">${c.Descritivo}</option>`);
+
+  // Distritos
+  const selD = document.getElementById('selDistrito');
+  selD.innerHTML = '<option value="">— escolhe —</option>';
+  distritos.forEach(d => selD.innerHTML += `<option value="${d.Id}" data-nome="${d.Descritivo}">${d.Descritivo}</option>`);
+  selD.disabled = false;
+
+  // Marcas
+  const selM = document.getElementById('selMarca');
+  selM.innerHTML = '<option value="">Todas</option>';
+  marcas.forEach(m => selM.innerHTML += `<option value="${m.Id}">${m.Descritivo}</option>`);
+
+  setStatus('precoStatus', '', '');
+}
+
+function onCombChange() { atualizarPostosSeReady(); }
+
+function onDistritoChange() {
+  const selD = document.getElementById('selDistrito');
+  const opt = selD.options[selD.selectedIndex];
+  const nomeDistrito = opt ? opt.dataset.nome : '';
+
+  const municipiosFiltrados = allMunicipios.filter(m => m.Distrito && m.Distrito.Descritivo === nomeDistrito);
+
+  const selMun = document.getElementById('selMunicipio');
+  selMun.innerHTML = '<option value="">— escolhe —</option>';
+  municipiosFiltrados.forEach(m => selMun.innerHTML += `<option value="${m.Id}">${m.Descritivo}</option>`);
+  selMun.disabled = false;
+
+  // Reset posto
+  resetPosto();
+}
+
+function onMunicipioChange() {
+  document.getElementById('selMarca').disabled = false;
+  atualizarPostos();
+}
+
+function onMarcaChange() { atualizarPostos(); }
+
+function resetPosto() {
+  const sel = document.getElementById('selPosto');
+  sel.innerHTML = '<option value="">— escolhe município —</option>';
+  sel.disabled = true;
+  postosList = [];
+  document.getElementById('precoValor').textContent = '—';
+  document.getElementById('precoData').textContent = '';
+  fuelPrice = null;
+  calcularTudo();
+}
+
+async function atualizarPostos() {
+  const idComb     = document.getElementById('selComb').value;
+  const idDistrito = document.getElementById('selDistrito').value;
+  const idMun      = document.getElementById('selMunicipio').value;
+  const idMarca    = document.getElementById('selMarca').value;
+
+  if (!idComb || !idDistrito || !idMun) { resetPosto(); return; }
+
+  const selPosto = document.getElementById('selPosto');
+  selPosto.innerHTML = '<option>A carregar...</option>';
+  selPosto.disabled = true;
+
+  const url = `/PesquisarPostos?idsTiposComb=${idComb}&idMarca=${idMarca}&idTipoPosto=&idDistrito=${idDistrito}&idsMunicipios=${idMun}&qtdPorPagina=50&pagina=1`;
+  const postos = await api(url);
+
+  postosList = postos || [];
+
+  if (!postos || postos.length === 0) {
+    selPosto.innerHTML = '<option>Nenhum posto encontrado</option>';
+    return;
+  }
+
+  selPosto.innerHTML = '<option value="">— escolhe posto —</option>';
+  postos.forEach(p => selPosto.innerHTML += `<option value="${p.Id}">${p.Nome}</option>`);
+  selPosto.disabled = false;
+}
+
+function atualizarPostosSeReady() {
+  const idMun = document.getElementById('selMunicipio').value;
+  if (idMun) atualizarPostos();
+}
+
+function onPostoChange() {
+  // Limpa preço quando muda de posto
+  document.getElementById('precoValor').textContent = '—';
+  document.getElementById('precoData').textContent = '';
+  fuelPrice = null;
+  calcularTudo();
+}
+
+// ── Atualizar Preço ──
+async function atualizarPreco() {
+  const idPosto = document.getElementById('selPosto').value;
+  const combNome = document.getElementById('selComb').options[document.getElementById('selComb').selectedIndex]?.text;
+
+  if (!idPosto) { setStatus('precoStatus', 'Seleciona um posto primeiro.', 'err'); return; }
+
+  setStatus('precoStatus', 'A buscar...', '');
+
+  const dados = await api('/GetDadosPosto?id=' + idPosto);
+  const comb = dados.Combustiveis.find(c => c.TipoCombustivel === combNome);
+
+  if (!comb) {
+    setStatus('precoStatus', 'Combustível não encontrado neste posto.', 'err');
+    return;
+  }
+
+  fuelPrice = parseFloat(comb.Preco.replace(',', '.'));
+  document.getElementById('precoValor').textContent = comb.Preco + ' €/L';
+  document.getElementById('precoData').textContent = 'Atualizado: ' + comb.DataAtualizacao;
+  setStatus('precoStatus', 'Atualizado', 'ok');
+
+  calcularTudo();
+}
+
+// ── Tabela ──
+function buildTabela() {
+  const tbody = document.getElementById('tabelaBody');
+  tbody.innerHTML = '';
+  dias.forEach((dia, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="td-dia">${dia}</td>
+      <td class="td-input" data-label="Quem Leva"><textarea rows="1" id="condutor_${i}" oninput="autoResize(this);calcularTudo()"></textarea></td>
+      <td class="td-input" data-label="Ida"><textarea rows="1" id="ida_${i}" oninput="autoResize(this);calcularTudo()"></textarea></td>
+      <td class="td-input" data-label="Volta"><textarea rows="1" id="volta_${i}" oninput="autoResize(this);calcularTudo()"></textarea></td>
+      <td class="td-gasoleo" id="gasoleo_${i}"><span class="status">—</span></td>
+      <td class="td-input td-nota" data-label="Nota"><textarea rows="1" id="nota_${i}" oninput="autoResize(this);guardarDados()"></textarea></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ── Auto-resize textareas ──
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+function autoResizeAll() {
+  document.querySelectorAll('.td-input textarea').forEach(autoResize);
+}
+
+// ── Persistência (localStorage) ──
+function guardarDados() {
+  const dados = {};
+  dias.forEach((_, i) => {
+    ['condutor', 'ida', 'volta', 'nota'].forEach(f => {
+      dados[`${f}_${i}`] = document.getElementById(`${f}_${i}`).value;
+    });
+  });
+  dados.kmViagem = document.getElementById('kmViagem').value;
+  dados.consumoCarro = document.getElementById('consumoCarro').value;
+  localStorage.setItem('boleias_dados', JSON.stringify(dados));
+}
+
+function carregarDados() {
+  const raw = localStorage.getItem('boleias_dados');
+  if (!raw) return;
+  try {
+    const dados = JSON.parse(raw);
+    dias.forEach((_, i) => {
+      ['condutor', 'ida', 'volta', 'nota'].forEach(f => {
+        const val = dados[`${f}_${i}`];
+        if (val !== undefined) document.getElementById(`${f}_${i}`).value = val;
+      });
+    });
+    if (dados.kmViagem) document.getElementById('kmViagem').value = dados.kmViagem;
+    if (dados.consumoCarro) document.getElementById('consumoCarro').value = dados.consumoCarro;
+  } catch(e) {}
+}
+
+// ── Cálculo principal ──
+function calcularTudo() {
+  const km = parseFloat(document.getElementById('kmViagem').value) || 0;
+  const consumo = parseFloat(document.getElementById('consumoCarro').value) || 0;
+  const preco = fuelPrice;
+  const kmSentido = km / 2;
+
+  // Custo por sentido
+  const custoPorSentido = preco ? (kmSentido * consumo / 100 * preco) : null;
+  document.getElementById('custoPorSentido').textContent = custoPorSentido ? custoPorSentido.toFixed(2) + ' €' : '—';
+
+  const totais = {};
+
+  dias.forEach((_, i) => {
+    const condutor = (document.getElementById(`condutor_${i}`).value || '').trim().toLowerCase();
+    const parseNomes = id => (document.getElementById(id).value || '').split(',').map(n => n.trim()).filter(n => n);
+    const paxIda   = parseNomes(`ida_${i}`).filter(p => p.toLowerCase() !== condutor);
+    const paxVolta = parseNomes(`volta_${i}`).filter(p => p.toLowerCase() !== condutor);
+    const todosUnicos = [...new Set([...paxIda, ...paxVolta])];
+
+    const celula = document.getElementById(`gasoleo_${i}`);
+
+    if (!condutor || todosUnicos.length === 0 || !custoPorSentido) {
+      celula.innerHTML = '<span class="status">—</span>';
+      return;
+    }
+
+    const custoIda   = paxIda.length   > 0 ? custoPorSentido / (paxIda.length + 1)   : 0;
+    const custoVolta = paxVolta.length > 0 ? custoPorSentido / (paxVolta.length + 1) : 0;
+
+    const linhas = todosUnicos.map(pessoa => {
+      const naIda   = paxIda.some(p => p.toLowerCase() === pessoa.toLowerCase());
+      const naVolta = paxVolta.some(p => p.toLowerCase() === pessoa.toLowerCase());
+      const total   = (naIda ? custoIda : 0) + (naVolta ? custoVolta : 0);
+      const detalhe = naIda && !naVolta ? '(só ida)' : (!naIda && naVolta ? '(só volta)' : '');
+
+      // Acumular totais
+      totais[pessoa] = (totais[pessoa] || 0) + total;
+
+      return `<div class="gasoleo-item">
+        <span class="gasoleo-nome">${pessoa}</span>
+        <span>
+          <span class="gasoleo-valor">${total.toFixed(2)} €</span>
+          ${detalhe ? `<span class="gasoleo-detalhe"> ${detalhe}</span>` : ''}
+        </span>
+      </div>`;
+    });
+
+    celula.innerHTML = `<div class="gasoleo-lines">${linhas.join('')}</div>`;
+  });
+
+  // Totais
+  const grid = document.getElementById('totaisGrid');
+  const pessoas = Object.entries(totais);
+  if (pessoas.length === 0) {
+    grid.innerHTML = '<span class="status">Preenche a tabela para ver os totais.</span>';
+  } else {
+    grid.innerHTML = pessoas.map(([nome, total]) => `
+      <div class="total-item">
+        <div class="total-nome">${nome}</div>
+        <div class="total-valor">${total.toFixed(2)} €</div>
+      </div>
+    `).join('');
+  }
+
+  guardarDados();
+}
+
+// ── Limpar ──
+function limparSemana() {
+  if (!confirm('Limpar todos os dados da semana?')) return;
+  dias.forEach((_, i) => {
+    ['condutor', 'ida', 'volta', 'nota'].forEach(f => {
+      document.getElementById(`${f}_${i}`).value = '';
+    });
+  });
+  calcularTudo();
+  localStorage.removeItem('boleias_dados');
+}
+
+// ── Copiar resumo ──
+function copiarResumo() {
+  const linhas = ['RESUMO BOLEIAS\n'];
+  dias.forEach((dia, i) => {
+    const condutor = document.getElementById(`condutor_${i}`).value;
+    const ida      = document.getElementById(`ida_${i}`).value;
+    const volta    = document.getElementById(`volta_${i}`).value;
+    const gas      = document.getElementById(`gasoleo_${i}`).innerText.replace(/\n/g, ' | ');
+    if (condutor) linhas.push(`${dia}: ${condutor} leva | Ida: ${ida} | Volta: ${volta} | ${gas}`);
+  });
+
+  const grid = document.getElementById('totaisGrid');
+  linhas.push('\nTOTAIS:');
+  grid.querySelectorAll('.total-item').forEach(el => {
+    linhas.push(`${el.querySelector('.total-nome').textContent}: ${el.querySelector('.total-valor').textContent}`);
+  });
+
+  navigator.clipboard.writeText(linhas.join('\n')).then(() => {
+    alert('Resumo copiado!');
+  });
+}
+
+// ── Helper ──
+function setStatus(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+</script>
+</body>
+</html>
