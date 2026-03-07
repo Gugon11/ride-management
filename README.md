@@ -1,8 +1,8 @@
-# Boleias - Gestao de Viagens
+# Boleias - Gestão de Viagens
 
-Pagina web (ficheiro unico `boleias.html`) para organizar boleias semanais e calcular quanto cada passageiro deve pagar em gasóleo, com base em:
+Página web (ficheiro único `boleias.html`) para organizar boleias semanais e calcular quanto cada passageiro deve pagar em gasóleo, com base em:
 
-- preco real do combustível obtido da [API da DGEG](https://precoscombustiveis.dgeg.gov.pt/)
+- preço real do combustível obtido da [API da DGEG](https://precoscombustiveis.dgeg.gov.pt/)
 - distância total da viagem
 - consumo do carro (L/100km)
 - pessoas que vão na ida e/ou volta
