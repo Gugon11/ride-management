@@ -12,6 +12,7 @@ Foi pensada para um fluxo simples de uso semanal (Segunda a Sexta), sem backend 
 ## O que esta página faz
 
 1. Carrega listas de combustíveis, distritos, municípios, marcas e postos.
+   - Se a API externa falhar (ex.: indisponibilidade de rede ou problema SSL/certificado), usa listas locais para combustíveis, distritos e municípios, para que os filtros base continuem disponíveis.
 2. Permite escolher um posto especifico e atualizar o preço de combustível.
 3. Calcula automaticamente o custo por sentido (ida ou volta).
 4. Distribui o custo por passageiro em cada dia, incluindo o condutor na divisão.
@@ -138,6 +139,7 @@ Depois copia esse texto para a área de transferência (`clipboard`) e mostra al
 - Sem backend/autenticação.
 - Dados apenas no browser atual (se limpar dados do browser, perde histórico).
 - Dependência de disponibilidade da API externa.
+- A pesquisa de postos e a atualização de preço continuam dependentes da disponibilidade da API externa da DGEG.
 - Nao há validação avançada de nomes duplicados com grafias diferentes (ex.: `Ana` vs `ana ` é tratado em parte, mas variações maiores continuam distintas).
 
 ## Melhorias possíveis
