@@ -35,7 +35,8 @@
     {
       "src": "icons/boleias-192x192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "icons/boleias-256x256.png",
@@ -50,12 +51,13 @@
     {
       "src": "icons/boleias-512x512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "start_url": "/ride-management/",
   "scope": "/ride-management/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#000000"
+  "theme_color": "#2563eb"
 }
