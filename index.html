@@ -144,8 +144,9 @@ header {
   .mt { margin-top: 24px; }
 
   /* Tabela responsiva: layout em cards */
-  .table-wrap { border: none; border-radius: 0; background: transparent; }
-  table { table-layout: auto; background: transparent; }
+  .table-wrap { border: none; border-radius: 0; background: transparent; padding: 0; overflow: visible; }
+  table { table-layout: auto; background: transparent; border-spacing: 0; }
+  tbody { display: flex; flex-direction: column; gap: 0; }
   table, thead, tbody, th, td { display: block; }
   colgroup { display: none; }
   thead { display: none; }
