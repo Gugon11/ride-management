@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestão de Boleias</title>
+<link rel="icon" type="image/x-icon" href="Boleias.ico">
+<link rel="manifest" href="icons_and_manifest/manifest.json">
+<meta name="theme-color" content="#2563eb">
+<link rel="apple-touch-icon" href="icons_and_manifest/icons/boleias-192x192.png">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -67,7 +71,7 @@ header {
 
 .logo {
   font-family: var(--display);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.5px;
   line-height: 1;
@@ -127,7 +131,7 @@ header {
 @media(max-width:600px) {
   .grid-2, .grid-3, .grid-km { grid-template-columns: 1fr; }
   .wrap { padding: 16px 12px 32px; }
-  .logo { font-size: 20px; }
+  .logo { font-size: 23px; }
   .tagline { font-size: 9px; }
   header { margin-bottom: 24px; padding-bottom: 16px; }
   .card { padding: 14px; }
@@ -676,6 +680,14 @@ tbody tr:hover { background: rgba(37,99,235,0.04); }
 const BASE = "https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb";
 const STORAGE_KEY = 'boleias_dados';
 const fallbackFilterState = { combustiveis: false, distritos: false, municipios: false, marcas: false };
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js', { scope: './' }).catch((e) => {
+      console.error('Falha no registo do service worker', e);
+    });
+  });
+}
 
 // ── Estado ──
 let allMunicipios = [];
