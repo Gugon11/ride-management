@@ -44,6 +44,8 @@ Base URL: `https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb`
 
 Endpoints: `/GetTiposCombustiveis`, `/GetDistritos`, `/GetMunicipios`, `/GetMarcas`, `/PesquisarPostos`, `/GetDadosPosto`
 
+Se a API estiver indisponível, os filtros (combustíveis, distritos, municípios, marcas) são carregados a partir de uma lista local em `fallback-filters.js`. Nesse caso, a pesquisa de postos e a atualização de preço ficam desativadas até a API voltar.
+
 A correspondência do combustível no posto é feita por comparação de texto (`TipoCombustivel === nome selecionado`).
 
 ## Layout

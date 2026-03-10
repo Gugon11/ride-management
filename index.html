@@ -685,6 +685,7 @@ tbody tr:hover { background: rgba(37,99,235,0.04); }
 
 </div>
 
+<script src="fallback-filters.js"></script>
 <script>
 const BASE = "https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb";
 const STORAGE_KEY = 'boleias_dados';
@@ -710,20 +711,49 @@ window.onload = async () => {
 // ── API fetch helper ──
 async function api(endpoint) {
   const r = await fetch(BASE + endpoint);
+  if (!r.ok) throw new Error('Falha HTTP ' + r.status);
   const j = await r.json();
+  if (!j || j.status === false || typeof j.resultado === 'undefined' || j.resultado === null) {
+    throw new Error((j && j.mensagem) || 'Resposta inválida da API');
+  }
   return j.resultado;
+}
+
+function pickFilterData(result, fallback, key, label, fallbackUsados) {
+  if (result.status === 'fulfilled' && Array.isArray(result.value) && result.value.length > 0) return result.value;
+  fallbackFilterState[key] = true;
+  fallbackUsados.push(label);
+  return fallback || [];
+}
+
+function formatarErroApi(err, msgPadrao) {
+  const msg = err && err.message ? err.message : '';
+  if (msg.includes('Failed to fetch') || msg.includes('Load failed')) {
+    return msgPadrao + ' A API externa pode estar indisponível ou com problema de certificado.';
+  }
+  return msgPadrao;
+}
+
+function pesquisaPostosDisponivel() {
+  return !fallbackFilterState.combustiveis && !fallbackFilterState.distritos && !fallbackFilterState.municipios && !fallbackFilterState.marcas;
 }
 
 // ── Carregar filtros ──
 async function carregarFiltros() {
-  setStatus('precoStatus', '', '');
+  setStatus('precoStatus', 'A carregar filtros...', '');
 
-  const [combs, distritos, municipios, marcas] = await Promise.all([
+  const resultados = await Promise.allSettled([
     api('/GetTiposCombustiveis'),
     api('/GetDistritos'),
     api('/GetMunicipios'),
     api('/GetMarcas'),
   ]);
+
+  const fallbackUsados = [];
+  const combs = pickFilterData(resultados[0], FILTER_FALLBACKS.combustiveis, 'combustiveis', 'combustíveis', fallbackUsados);
+  const distritos = pickFilterData(resultados[1], FILTER_FALLBACKS.distritos, 'distritos', 'distritos', fallbackUsados);
+  const municipios = pickFilterData(resultados[2], FILTER_FALLBACKS.municipios, 'municipios', 'municípios', fallbackUsados);
+  const marcas = pickFilterData(resultados[3], FILTER_FALLBACKS.marcas, 'marcas', 'marcas', fallbackUsados);
 
   allMunicipios = municipios;
   allMarcas = marcas;
@@ -744,7 +774,11 @@ async function carregarFiltros() {
   selM.innerHTML = '<option value="">Todas</option>';
   marcas.forEach(m => selM.innerHTML += `<option value="${m.Id}">${m.Descritivo}</option>`);
 
-  setStatus('precoStatus', '', '');
+  if (fallbackUsados.length > 0) {
+    setStatus('precoStatus', 'A usar lista local para ' + fallbackUsados.join(', ') + '.', 'err');
+  } else {
+    setStatus('precoStatus', '', '');
+  }
 }
 
 function onCombChange() {
@@ -798,24 +832,38 @@ async function atualizarPostos() {
   const idMarca    = document.getElementById('selMarca').value;
 
   if (!idComb || !idDistrito || !idMun) { resetPosto(); return; }
+  if (!pesquisaPostosDisponivel()) {
+    resetPosto();
+    setStatus('precoStatus', 'Os filtros base estão disponíveis, mas a pesquisa de postos precisa da API externa.', 'err');
+    return;
+  }
 
   const selPosto = document.getElementById('selPosto');
   selPosto.innerHTML = '<option>A carregar...</option>';
   selPosto.disabled = true;
 
-  const url = `/PesquisarPostos?idsTiposComb=${idComb}&idMarca=${idMarca}&idTipoPosto=&idDistrito=${idDistrito}&idsMunicipios=${idMun}&qtdPorPagina=50&pagina=1`;
-  const postos = await api(url);
+  try {
+    const url = `/PesquisarPostos?idsTiposComb=${idComb}&idMarca=${idMarca}&idTipoPosto=&idDistrito=${idDistrito}&idsMunicipios=${idMun}&qtdPorPagina=50&pagina=1`;
+    const postos = await api(url);
 
-  postosList = postos || [];
+    postosList = postos || [];
 
-  if (!postos || postos.length === 0) {
-    selPosto.innerHTML = '<option>Nenhum posto encontrado</option>';
-    return;
+    if (!postos || postos.length === 0) {
+      selPosto.innerHTML = '<option>Nenhum posto encontrado</option>';
+      return;
+    }
+
+    selPosto.innerHTML = '<option value="">— escolhe posto —</option>';
+    postos.forEach(p => selPosto.innerHTML += `<option value="${p.Id}">${p.Nome}</option>`);
+    selPosto.disabled = false;
+    setStatus('precoStatus', '', '');
+  } catch (e) {
+    postosList = [];
+    selPosto.innerHTML = '<option>Erro ao carregar postos</option>';
+    selPosto.disabled = true;
+    setStatus('precoStatus', formatarErroApi(e, 'Não foi possível carregar os postos.'), 'err');
+    console.error('Falha ao carregar postos', e);
   }
-
-  selPosto.innerHTML = '<option value="">— escolhe posto —</option>';
-  postos.forEach(p => selPosto.innerHTML += `<option value="${p.Id}">${p.Nome}</option>`);
-  selPosto.disabled = false;
 }
 
 function atualizarPostosSeReady() {
@@ -835,26 +883,38 @@ function onPostoChange() {
 // ── Atualizar Preço ──
 async function atualizarPreco() {
   const idPosto = document.getElementById('selPosto').value;
-  const combNome = document.getElementById('selComb').options[document.getElementById('selComb').selectedIndex]?.text;
+  const selComb = document.getElementById('selComb');
+  const combOpt = selComb.options[selComb.selectedIndex];
+  const combNome = combOpt ? combOpt.text : '';
 
   if (!idPosto) { setStatus('precoStatus', 'Seleciona um posto primeiro.', 'err'); return; }
-
-  setStatus('precoStatus', 'A buscar...', '');
-
-  const dados = await api('/GetDadosPosto?id=' + idPosto);
-  const comb = dados.Combustiveis.find(c => c.TipoCombustivel === combNome);
-
-  if (!comb) {
-    setStatus('precoStatus', 'Combustível não encontrado neste posto.', 'err');
+  if (!pesquisaPostosDisponivel()) {
+    setStatus('precoStatus', 'Não é possível atualizar o preço sem acesso à API externa.', 'err');
     return;
   }
 
-  fuelPrice = parseFloat(comb.Preco.replace(',', '.'));
-  document.getElementById('precoValor').textContent = comb.Preco + ' €/L';
-  document.getElementById('precoData').textContent = 'Atualizado: ' + comb.DataAtualizacao;
-  setStatus('precoStatus', 'Atualizado', 'ok');
+  setStatus('precoStatus', 'A buscar...', '');
 
-  calcularTudo();
+  try {
+    const dados = await api('/GetDadosPosto?id=' + idPosto);
+    const combustiveis = Array.isArray(dados.Combustiveis) ? dados.Combustiveis : [];
+    const comb = combustiveis.find(c => c.TipoCombustivel === combNome);
+
+    if (!comb) {
+      setStatus('precoStatus', 'Combustível não encontrado neste posto.', 'err');
+      return;
+    }
+
+    fuelPrice = parseFloat(comb.Preco.replace(',', '.'));
+    document.getElementById('precoValor').textContent = comb.Preco + ' €/L';
+    document.getElementById('precoData').textContent = 'Atualizado: ' + comb.DataAtualizacao;
+    setStatus('precoStatus', 'Atualizado', 'ok');
+
+    calcularTudo();
+  } catch (e) {
+    setStatus('precoStatus', formatarErroApi(e, 'Não foi possível atualizar o preço.'), 'err');
+    console.error('Falha ao atualizar preço', e);
+  }
 }
 
 // ── Tabela ──
@@ -1071,6 +1131,9 @@ function copiarResumo() {
 
   navigator.clipboard.writeText(linhas.join('\n')).then(() => {
     alert('Resumo copiado!');
+  }).catch((e) => {
+    setStatus('precoStatus', 'Não foi possível copiar o resumo.', 'err');
+    console.error('Falha ao copiar resumo', e);
   });
 }
 
