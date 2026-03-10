@@ -613,7 +613,7 @@ tbody tr:hover { background: rgba(37,99,235,0.04); }
 
     <div class="price-row">
       <div class="price-box">
-        <div class="lbl">Preço Diesel</div>
+        <div class="lbl">Preço Combustível</div>
         <div class="val" id="precoValor">—</div>
         <div class="sub" id="precoData"></div>
       </div>
@@ -661,7 +661,7 @@ tbody tr:hover { background: rgba(37,99,235,0.04); }
           <th>Quem Leva</th>
           <th>Ida</th>
           <th>Volta</th>
-          <th>Gasóleo (€)</th>
+          <th>Combustível (€)</th>
           <th>Nota</th>
         </tr>
       </thead>
@@ -922,7 +922,7 @@ async function atualizarPreco() {
     }
 
     fuelPrice = parseFloat(comb.Preco.replace(',', '.'));
-    document.getElementById('precoValor').textContent = comb.Preco + ' €/L';
+    document.getElementById('precoValor').textContent = fuelPrice.toFixed(3) + ' €/L';
     document.getElementById('precoData').textContent = 'Atualizado: ' + comb.DataAtualizacao;
     setStatus('precoStatus', 'Atualizado', 'ok');
 
