@@ -685,10 +685,10 @@ tbody tr:hover { background: rgba(37,99,235,0.04); }
 
 </div>
 
-<script src="fallback-filters.js"></script>
 <script>
 const BASE = "https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb";
 const STORAGE_KEY = 'boleias_dados';
+const fallbackFilterState = { combustiveis: false, distritos: false, municipios: false, marcas: false };
 
 // ── Estado ──
 let allMunicipios = [];
@@ -738,6 +738,18 @@ function pesquisaPostosDisponivel() {
   return !fallbackFilterState.combustiveis && !fallbackFilterState.distritos && !fallbackFilterState.municipios && !fallbackFilterState.marcas;
 }
 
+// ── Lazy load fallback filters ──
+async function carregarFallbacks() {
+  if (window.FALLBACK_FILTERS) return window.FALLBACK_FILTERS;
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'fallback-filters.js';
+    s.onload = () => resolve(window.FALLBACK_FILTERS || {});
+    s.onerror = () => { console.error('Falha ao carregar fallback-filters.js'); resolve({}); };
+    document.head.appendChild(s);
+  });
+}
+
 // ── Carregar filtros ──
 async function carregarFiltros() {
   setStatus('precoStatus', 'A carregar filtros...', '');
@@ -749,11 +761,15 @@ async function carregarFiltros() {
     api('/GetMarcas'),
   ]);
 
+  // Só carrega o ficheiro de fallback se algum endpoint falhou
+  const algumFalhou = resultados.some(r => r.status !== 'fulfilled' || !Array.isArray(r.value) || r.value.length === 0);
+  const fb = algumFalhou ? await carregarFallbacks() : {};
+
   const fallbackUsados = [];
-  const combs = pickFilterData(resultados[0], FILTER_FALLBACKS.combustiveis, 'combustiveis', 'combustíveis', fallbackUsados);
-  const distritos = pickFilterData(resultados[1], FILTER_FALLBACKS.distritos, 'distritos', 'distritos', fallbackUsados);
-  const municipios = pickFilterData(resultados[2], FILTER_FALLBACKS.municipios, 'municipios', 'municípios', fallbackUsados);
-  const marcas = pickFilterData(resultados[3], FILTER_FALLBACKS.marcas, 'marcas', 'marcas', fallbackUsados);
+  const combs = pickFilterData(resultados[0], fb.combustiveis, 'combustiveis', 'combustíveis', fallbackUsados);
+  const distritos = pickFilterData(resultados[1], fb.distritos, 'distritos', 'distritos', fallbackUsados);
+  const municipios = pickFilterData(resultados[2], fb.municipios, 'municipios', 'municípios', fallbackUsados);
+  const marcas = pickFilterData(resultados[3], fb.marcas, 'marcas', 'marcas', fallbackUsados);
 
   allMunicipios = municipios;
   allMarcas = marcas;
