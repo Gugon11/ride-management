@@ -144,12 +144,9 @@ header {
   .mt { margin-top: 24px; }
 
   /* Tabela responsiva: layout em cards */
-  .table-wrap { border: none; border-radius: 0; background: transparent; padding: 0; overflow: visible; }
-  table { table-layout: auto; background: transparent; border-spacing: 0; }
-  tbody { display: flex; flex-direction: column; gap: 0; }
-  table, thead, tbody, th, td { display: block; }
-  colgroup { display: none; }
-  thead { display: none; }
+  .table-wrap, table, tbody { display: contents; }
+  colgroup, thead { display: none; }
+  td { display: block; border-bottom: none; padding: 0; }
 
   tbody tr {
     display: grid;
@@ -162,8 +159,6 @@ header {
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
-
-  td { border-bottom: none; padding: 0; }
 
   /* -- Dia: header do card -- */
   .td-dia {
@@ -211,17 +206,7 @@ header {
     box-shadow: 0 0 0 3px var(--accent-dim);
   }
 
-  /* -- Condutor: destaque -- */
-  .td-input[data-label="Quem Leva"]::before {
-    color: var(--accent);
-    font-weight: 600;
-  }
-  .td-input[data-label="Quem Leva"] textarea {
-    border-color: var(--accent);
-    border-left: 3px solid var(--accent);
-    background: var(--accent-dim);
-    font-weight: 500;
-  }
+  /* -- Condutor: sem destaque extra em mobile -- */
 
   /* -- Ida/Volta: lado a lado via CSS grid -- */
   tbody tr .td-dia,
@@ -559,6 +544,7 @@ tbody tr:hover { background: rgba(37,99,235,0.04); }
   .wrap { padding: 24px 14px 36px; }
   .price-box .val { font-size: 18px; }
 }
+
 </style>
 </head>
 <body>
