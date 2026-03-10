@@ -144,51 +144,133 @@ header {
   .mt { margin-top: 24px; }
 
   /* Tabela responsiva: layout em cards */
-  .table-wrap { border: none; border-radius: 0; }
-  table { table-layout: auto; }
-  table, thead, tbody, th, td, tr { display: block; }
+  .table-wrap { border: none; border-radius: 0; background: transparent; }
+  table { table-layout: auto; background: transparent; }
+  table, thead, tbody, th, td { display: block; }
   colgroup { display: none; }
   thead { display: none; }
+
   tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 10px;
-    margin-bottom: 12px;
-    padding: 12px;
+    border-radius: 14px;
+    margin-bottom: 16px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
+
   td { border-bottom: none; padding: 0; }
+
+  /* -- Dia: header do card -- */
   .td-dia {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--text);
-    padding: 0 0 8px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 8px;
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    background: var(--accent);
+    padding: 10px 16px;
+    margin-bottom: 0;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: none;
+    min-width: unset;
   }
-  .td-input { margin-top: 6px; }
+
+  /* -- Campos de input -- */
+  .td-input {
+    margin: 0;
+    padding: 0 14px;
+  }
+  .td-input::before {
+    content: attr(data-label);
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    display: block;
+    padding-top: 12px;
+    margin-bottom: 5px;
+  }
   .td-input textarea {
     background: #ffffff;
-    border: 1px solid var(--border2);
-    border-left: 1px solid var(--border2);
-    border-radius: 6px;
-    padding: 9px 12px;
+    border: 1.5px solid var(--border);
+    border-left: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.4;
   }
   .td-input textarea:focus {
     border-color: var(--accent);
     border-left-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
   }
-  .td-input::before {
-    content: attr(data-label);
-    font-size: 10px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+
+  /* -- Condutor: destaque -- */
+  .td-input[data-label="Quem Leva"]::before {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .td-input[data-label="Quem Leva"] textarea {
+    border-color: var(--accent);
+    border-left: 3px solid var(--accent);
+    background: var(--accent-dim);
+    font-weight: 500;
+  }
+
+  /* -- Ida/Volta: lado a lado via CSS grid -- */
+  tbody tr .td-dia,
+  tbody tr .td-input[data-label="Quem Leva"],
+  tbody tr .td-gasoleo,
+  tbody tr .td-nota {
+    grid-column: 1 / -1;
+  }
+  .td-input[data-label="Ida"] {
+    grid-column: 1;
+    padding-left: 14px;
+    padding-right: 6px;
+  }
+  .td-input[data-label="Volta"] {
+    grid-column: 2;
+    padding-left: 6px;
+    padding-right: 14px;
+  }
+
+  /* -- Gasóleo: secção de custos -- */
+  .td-gasoleo {
+    margin: 12px 14px 0;
+    padding: 12px 14px;
+    border-top: none;
+    background: var(--surface2);
+    border-radius: 10px;
+  }
+  .td-gasoleo .gasoleo-item {
+    padding: 4px 0;
+  }
+  .td-gasoleo .gasoleo-valor {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  /* -- Nota -- */
+  .td-nota {
+    padding: 0 14px 14px;
+    margin-top: 0;
+  }
+  .td-nota::before {
+    padding-top: 10px;
     color: var(--muted);
-    display: block;
-    margin-bottom: 4px;
-    margin-top: 4px;
+    font-weight: 400;
   }
-  .td-gasoleo { margin-top: 10px; padding: 10px 0 0; border-top: 1px solid var(--border); }
-  .td-nota { margin-top: 6px; }
+  .td-nota textarea {
+    border-style: dashed;
+    font-size: 12px;
+    color: var(--muted2);
+  }
 }
 
 /* ── FIELD ── */
@@ -605,6 +687,7 @@ tbody tr:hover { background: rgba(37,99,235,0.04); }
 
 <script>
 const BASE = "https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb";
+const STORAGE_KEY = 'boleias_dados';
 
 // ── Estado ──
 let allMunicipios = [];
@@ -620,6 +703,7 @@ window.onload = async () => {
   carregarDados();
   autoResizeAll();
   await carregarFiltros();
+  await carregarFiltrosGuardados();
   calcularTudo();
 };
 
@@ -663,7 +747,10 @@ async function carregarFiltros() {
   setStatus('precoStatus', '', '');
 }
 
-function onCombChange() { atualizarPostosSeReady(); }
+function onCombChange() {
+  atualizarPostosSeReady();
+  guardarDados();
+}
 
 function onDistritoChange() {
   const selD = document.getElementById('selDistrito');
@@ -679,14 +766,19 @@ function onDistritoChange() {
 
   // Reset posto
   resetPosto();
+  guardarDados();
 }
 
-function onMunicipioChange() {
+async function onMunicipioChange() {
   document.getElementById('selMarca').disabled = false;
-  atualizarPostos();
+  await atualizarPostos();
+  guardarDados();
 }
 
-function onMarcaChange() { atualizarPostos(); }
+async function onMarcaChange() {
+  await atualizarPostos();
+  guardarDados();
+}
 
 function resetPosto() {
   const sel = document.getElementById('selPosto');
@@ -737,6 +829,7 @@ function onPostoChange() {
   document.getElementById('precoData').textContent = '';
   fuelPrice = null;
   calcularTudo();
+  guardarDados();
 }
 
 // ── Atualizar Preço ──
@@ -801,23 +894,82 @@ function guardarDados() {
   });
   dados.kmViagem = document.getElementById('kmViagem').value;
   dados.consumoCarro = document.getElementById('consumoCarro').value;
-  localStorage.setItem('boleias_dados', JSON.stringify(dados));
+  dados.selComb = document.getElementById('selComb').value;
+  dados.selDistrito = document.getElementById('selDistrito').value;
+  dados.selMunicipio = document.getElementById('selMunicipio').value;
+  dados.selMarca = document.getElementById('selMarca').value;
+  dados.selPosto = document.getElementById('selPosto').value;
+  dados.fuelPrice = fuelPrice;
+  dados.precoValor = document.getElementById('precoValor').textContent;
+  dados.precoData = document.getElementById('precoData').textContent;
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
+}
+
+function getDadosGuardados() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch(e) {
+    return null;
+  }
 }
 
 function carregarDados() {
-  const raw = localStorage.getItem('boleias_dados');
-  if (!raw) return;
-  try {
-    const dados = JSON.parse(raw);
-    dias.forEach((_, i) => {
-      ['condutor', 'ida', 'volta', 'nota'].forEach(f => {
-        const val = dados[`${f}_${i}`];
-        if (val !== undefined) document.getElementById(`${f}_${i}`).value = val;
-      });
+  const dados = getDadosGuardados();
+  if (!dados) return;
+
+  dias.forEach((_, i) => {
+    ['condutor', 'ida', 'volta', 'nota'].forEach(f => {
+      const val = dados[`${f}_${i}`];
+      if (val !== undefined) document.getElementById(`${f}_${i}`).value = val;
     });
-    if (dados.kmViagem) document.getElementById('kmViagem').value = dados.kmViagem;
-    if (dados.consumoCarro) document.getElementById('consumoCarro').value = dados.consumoCarro;
-  } catch(e) {}
+  });
+  if (dados.kmViagem) document.getElementById('kmViagem').value = dados.kmViagem;
+  if (dados.consumoCarro) document.getElementById('consumoCarro').value = dados.consumoCarro;
+}
+
+async function carregarFiltrosGuardados() {
+  const dados = getDadosGuardados();
+  if (!dados) return;
+
+  const selComb = document.getElementById('selComb');
+  const selDistrito = document.getElementById('selDistrito');
+  const selMunicipio = document.getElementById('selMunicipio');
+  const selMarca = document.getElementById('selMarca');
+  const selPosto = document.getElementById('selPosto');
+
+  if (dados.selComb) selComb.value = dados.selComb;
+
+  if (dados.selDistrito) {
+    selDistrito.value = dados.selDistrito;
+    onDistritoChange();
+  }
+
+  if (dados.selMunicipio) {
+    selMunicipio.value = dados.selMunicipio;
+  }
+
+  if (dados.selMarca !== undefined) {
+    selMarca.value = dados.selMarca;
+  }
+
+  if (selMunicipio.value) {
+    selMarca.disabled = false;
+    await atualizarPostos();
+  }
+
+  if (dados.selPosto) {
+    selPosto.value = dados.selPosto;
+  }
+
+  if (selPosto.value && dados.fuelPrice) {
+    fuelPrice = Number(dados.fuelPrice);
+    document.getElementById('precoValor').textContent = dados.precoValor || `${fuelPrice.toFixed(3)} €/L`;
+    document.getElementById('precoData').textContent = dados.precoData || '';
+    setStatus('precoStatus', 'Preço restaurado da sessão anterior.', 'ok');
+  }
 }
 
 // ── Cálculo principal ──
@@ -897,7 +1049,7 @@ function limparSemana() {
     });
   });
   calcularTudo();
-  localStorage.removeItem('boleias_dados');
+  guardarDados();
 }
 
 // ── Copiar resumo ──
