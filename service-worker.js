@@ -1,7 +1,9 @@
-const CACHE_NAME = 'boleias-cache-v1';
+const CACHE_NAME = 'boleias-cache-v2';
 const APP_SHELL = [
   './',
   './index.html',
+  './styles.css',
+  './app.js',
   './fallback-filters.js',
   './Boleias.ico',
   './icons_and_manifest/manifest.json',
