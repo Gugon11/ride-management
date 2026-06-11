@@ -190,6 +190,21 @@ select:disabled { opacity: 0.35; cursor: not-allowed; }
   font-style: italic;
 }
 
+.link-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 2px 0 0;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.link-btn:hover { color: #1d4ed8; }
+
 /* ── BUTTON ── */
 .btn {
   font-family: var(--mono);

@@ -47,7 +47,7 @@
       </div>
     </div>
 
-    <div class="grid-2" style="margin-top:12px">
+    <div class="grid-3" style="margin-top:12px">
       <div class="field">
         <label for="selMarca">Marca</label>
         <select id="selMarca" disabled>
@@ -55,7 +55,13 @@
         </select>
       </div>
       <div class="field">
-        <label for="selPosto">Posto</label>
+        <label for="selTipoPosto">Tipo de Posto</label>
+        <select id="selTipoPosto" disabled>
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="selPosto">Posto (mais barato primeiro)</label>
         <select id="selPosto" disabled>
           <option value="">— escolhe município —</option>
         </select>
@@ -67,6 +73,13 @@
         <div class="lbl">Preço Combustível</div>
         <div class="val" id="precoValor">—</div>
         <div class="sub" id="precoData"></div>
+        <div class="sub" id="precoMorada"></div>
+      </div>
+      <div class="price-box" id="mediaBox" hidden>
+        <div class="lbl">Média Nacional</div>
+        <div class="val" id="mediaValor">—</div>
+        <div class="sub" id="mediaData"></div>
+        <button class="link-btn" id="btnUsarMedia" type="button">usar este preço</button>
       </div>
       <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
         <button class="btn btn-accent" id="btnAtualizarPreco">Atualizar Preço</button>

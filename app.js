@@ -14,8 +14,9 @@ if ('serviceWorker' in navigator) {
 // ── Estado ──
 let allMunicipios = [];
 let allMarcas = [];
-let postosList = []; // [{id, nome}]
+let postosList = []; // resultados completos de PesquisarPostos (com preço, morada, etc.)
 let fuelPrice = null;
+let mediaNacional = null; // { preco, data, numPostos } do PMD
 let pessoas = []; // nomes únicos
 let semana = DIAS.map(() => ({ condutor: '', ida: [], volta: [], nota: '' }));
 
@@ -32,6 +33,7 @@ window.addEventListener('load', async () => {
   await carregarFiltros();
   await carregarFiltrosGuardados();
   calcularTudo();
+  carregarMediaNacional();
 });
 
 function wireEvents() {
@@ -39,8 +41,10 @@ function wireEvents() {
   $('selDistrito').addEventListener('change', onDistritoChange);
   $('selMunicipio').addEventListener('change', onMunicipioChange);
   $('selMarca').addEventListener('change', onMarcaChange);
+  $('selTipoPosto').addEventListener('change', onTipoPostoChange);
   $('selPosto').addEventListener('change', onPostoChange);
   $('btnAtualizarPreco').addEventListener('click', atualizarPreco);
+  $('btnUsarMedia').addEventListener('click', usarMediaNacional);
   $('kmViagem').addEventListener('input', calcularTudo);
   $('consumoCarro').addEventListener('input', calcularTudo);
   $('btnAddPessoa').addEventListener('click', adicionarPessoa);
@@ -102,10 +106,12 @@ async function carregarFiltros() {
     api('/GetDistritos'),
     api('/GetMunicipios'),
     api('/GetMarcas'),
+    api('/GetTiposPostos'),
   ]);
 
-  // Só carrega o ficheiro de fallback se algum endpoint falhou
-  const algumFalhou = resultados.some(r => r.status !== 'fulfilled' || !Array.isArray(r.value) || r.value.length === 0);
+  // Só carrega o ficheiro de fallback se algum endpoint base falhou
+  // (GetTiposPostos é opcional e não tem fallback)
+  const algumFalhou = resultados.slice(0, 4).some(r => r.status !== 'fulfilled' || !Array.isArray(r.value) || r.value.length === 0);
   const fb = algumFalhou ? await carregarFallbacks() : {};
 
   const fallbackUsados = [];
@@ -125,13 +131,20 @@ async function carregarFiltros() {
   // Distritos
   const selD = $('selDistrito');
   selD.innerHTML = '<option value="">— escolhe —</option>';
-  distritos.forEach(d => selD.innerHTML += `<option value="${d.Id}" data-nome="${d.Descritivo}">${d.Descritivo}</option>`);
+  distritos.forEach(d => selD.innerHTML += `<option value="${d.Id}">${d.Descritivo}</option>`);
   selD.disabled = false;
 
   // Marcas
   const selM = $('selMarca');
   selM.innerHTML = '<option value="">Todas</option>';
   marcas.forEach(m => selM.innerHTML += `<option value="${m.Id}">${m.Descritivo}</option>`);
+
+  // Tipos de posto (opcional — fica só "Todos" se a API falhar)
+  const selTP = $('selTipoPosto');
+  selTP.innerHTML = '<option value="">Todos</option>';
+  if (resultados[4].status === 'fulfilled' && Array.isArray(resultados[4].value)) {
+    resultados[4].value.forEach(t => selTP.innerHTML += `<option value="${t.Id}">${t.Descritivo}</option>`);
+  }
 
   if (fallbackUsados.length > 0) {
     setStatus('precoStatus', 'A usar lista local para ' + fallbackUsados.join(', ') + '.', 'err');
@@ -142,15 +155,16 @@ async function carregarFiltros() {
 
 function onCombChange() {
   atualizarPostosSeReady();
+  carregarMediaNacional();
   guardarDados();
 }
 
 function onDistritoChange() {
-  const selD = $('selDistrito');
-  const opt = selD.options[selD.selectedIndex];
-  const nomeDistrito = opt ? opt.dataset.nome : '';
+  const idDistrito = $('selDistrito').value;
 
-  const municipiosFiltrados = allMunicipios.filter(m => m.Distrito && m.Distrito.Descritivo === nomeDistrito);
+  // API: campo IdDistrito; fallback local: objeto aninhado Distrito.Id
+  const municipiosFiltrados = allMunicipios.filter(m =>
+    String(m.IdDistrito) === idDistrito || (m.Distrito && String(m.Distrito.Id) === idDistrito));
 
   const selMun = $('selMunicipio');
   selMun.innerHTML = '<option value="">— escolhe —</option>';
@@ -164,11 +178,17 @@ function onDistritoChange() {
 
 async function onMunicipioChange() {
   $('selMarca').disabled = false;
+  $('selTipoPosto').disabled = false;
   await atualizarPostos();
   guardarDados();
 }
 
 async function onMarcaChange() {
+  await atualizarPostos();
+  guardarDados();
+}
+
+async function onTipoPostoChange() {
   await atualizarPostos();
   guardarDados();
 }
@@ -180,15 +200,17 @@ function resetPosto() {
   postosList = [];
   $('precoValor').textContent = '—';
   $('precoData').textContent = '';
+  $('precoMorada').textContent = '';
   fuelPrice = null;
   calcularTudo();
 }
 
 async function atualizarPostos() {
-  const idComb     = $('selComb').value;
-  const idDistrito = $('selDistrito').value;
-  const idMun      = $('selMunicipio').value;
-  const idMarca    = $('selMarca').value;
+  const idComb      = $('selComb').value;
+  const idDistrito  = $('selDistrito').value;
+  const idMun       = $('selMunicipio').value;
+  const idMarca     = $('selMarca').value;
+  const idTipoPosto = $('selTipoPosto').value;
 
   if (!idComb || !idDistrito || !idMun) { resetPosto(); return; }
   if (!pesquisaPostosDisponivel()) {
@@ -202,7 +224,7 @@ async function atualizarPostos() {
   selPosto.disabled = true;
 
   try {
-    const url = `/PesquisarPostos?idsTiposComb=${idComb}&idMarca=${idMarca}&idTipoPosto=&idDistrito=${idDistrito}&idsMunicipios=${idMun}&qtdPorPagina=50&pagina=1`;
+    const url = `/PesquisarPostos?idsTiposComb=${idComb}&idMarca=${idMarca}&idTipoPosto=${idTipoPosto}&idDistrito=${idDistrito}&idsMunicipios=${idMun}&qtdPorPagina=50&pagina=1`;
     const postos = await api(url);
 
     postosList = postos || [];
@@ -212,8 +234,12 @@ async function atualizarPostos() {
       return;
     }
 
+    // A API devolve os postos ordenados por preço crescente, já com o preço incluído
     selPosto.innerHTML = '<option value="">— escolhe posto —</option>';
-    postos.forEach(p => selPosto.innerHTML += `<option value="${p.Id}">${p.Nome}</option>`);
+    postos.forEach(p => {
+      const preco = p.Preco ? p.Preco + ' · ' : '';
+      selPosto.innerHTML += `<option value="${p.Id}">${preco}${p.Nome}</option>`;
+    });
     selPosto.disabled = false;
     setStatus('precoStatus', '', '');
   } catch (e) {
@@ -231,10 +257,65 @@ function atualizarPostosSeReady() {
 }
 
 function onPostoChange() {
-  // Limpa preço quando muda de posto
-  $('precoValor').textContent = '—';
-  $('precoData').textContent = '';
-  fuelPrice = null;
+  // Aplica logo o preço que veio na pesquisa — sem precisar de "Atualizar Preço"
+  const posto = postosList.find(p => String(p.Id) === $('selPosto').value);
+  if (posto && aplicarPrecoDoPosto(posto)) {
+    setStatus('precoStatus', 'Preço aplicado automaticamente.', 'ok');
+  } else {
+    $('precoValor').textContent = '—';
+    $('precoData').textContent = '';
+    $('precoMorada').textContent = '';
+    fuelPrice = null;
+  }
+  calcularTudo();
+  guardarDados();
+}
+
+// Preenche preço/data/morada a partir de um resultado de PesquisarPostos.
+function aplicarPrecoDoPosto(p) {
+  const preco = parseFloat(String(p.Preco || '').replace(',', '.'));
+  if (!isFinite(preco) || preco <= 0) return false;
+  fuelPrice = preco;
+  $('precoValor').textContent = preco.toFixed(3) + ' €/L';
+  $('precoData').textContent = 'Atualizado: ' + (p.DataAtualizacao || '');
+  $('precoMorada').textContent = [p.Morada, p.Localidade].filter(Boolean).join(', ');
+  return true;
+}
+
+// ── Média nacional (PMD) ──
+async function carregarMediaNacional() {
+  const box = $('mediaBox');
+  const idComb = $('selComb').value;
+  mediaNacional = null;
+  if (!idComb) { box.hidden = true; return; }
+
+  try {
+    const fim = new Date();
+    const ini = new Date(fim.getTime() - 7 * 24 * 3600 * 1000);
+    const iso = (d) => d.toISOString().slice(0, 10);
+    const res = await api(`/PMD?idsTiposComb=${idComb}&dataIni=${iso(ini)}&dataFim=${iso(fim)}&qtdPorPagina=1&pagina=1&orderDesc=1`);
+    const dia = Array.isArray(res) ? res[0] : null;
+    const preco = dia ? parseFloat(String(dia.PrecoMedio || '').replace(',', '.')) : NaN;
+    if (!dia || !isFinite(preco) || preco <= 0) { box.hidden = true; return; }
+
+    mediaNacional = { preco, data: dia.Data, numPostos: dia.NumPostos };
+    $('mediaValor').textContent = preco.toFixed(3) + ' €/L';
+    $('mediaData').textContent = `${dia.Data} · ${dia.NumPostos} postos`;
+    box.hidden = false;
+  } catch (e) {
+    box.hidden = true;
+    console.error('Falha ao carregar média nacional', e);
+  }
+}
+
+function usarMediaNacional() {
+  if (!mediaNacional) return;
+  fuelPrice = mediaNacional.preco;
+  $('precoValor').textContent = mediaNacional.preco.toFixed(3) + ' €/L';
+  $('precoData').textContent = 'Média nacional de ' + mediaNacional.data;
+  $('precoMorada').textContent = '';
+  $('selPosto').value = '';
+  setStatus('precoStatus', 'A usar a média nacional.', 'ok');
   calcularTudo();
   guardarDados();
 }
@@ -510,10 +591,12 @@ function guardarDados() {
     selDistrito: $('selDistrito').value,
     selMunicipio: $('selMunicipio').value,
     selMarca: $('selMarca').value,
+    selTipoPosto: $('selTipoPosto').value,
     selPosto: $('selPosto').value,
     fuelPrice,
     precoValor: $('precoValor').textContent,
     precoData: $('precoData').textContent,
+    precoMorada: $('precoMorada').textContent,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(dados));
 }
@@ -584,6 +667,7 @@ async function carregarFiltrosGuardados() {
   const selDistrito = $('selDistrito');
   const selMunicipio = $('selMunicipio');
   const selMarca = $('selMarca');
+  const selTipoPosto = $('selTipoPosto');
   const selPosto = $('selPosto');
 
   if (dados.selComb) selComb.value = dados.selComb;
@@ -601,8 +685,13 @@ async function carregarFiltrosGuardados() {
     selMarca.value = dados.selMarca;
   }
 
+  if (dados.selTipoPosto !== undefined) {
+    selTipoPosto.value = dados.selTipoPosto;
+  }
+
   if (selMunicipio.value) {
     selMarca.disabled = false;
+    selTipoPosto.disabled = false;
     await atualizarPostos();
   }
 
@@ -610,10 +699,16 @@ async function carregarFiltrosGuardados() {
     selPosto.value = dados.selPosto;
   }
 
-  if (selPosto.value && dados.fuelPrice) {
+  // Se o posto guardado veio na pesquisa nova, usa o preço fresco da API;
+  // caso contrário restaura o que estava guardado.
+  const postoFresco = selPosto.value && postosList.find(p => String(p.Id) === selPosto.value);
+  if (postoFresco && aplicarPrecoDoPosto(postoFresco)) {
+    setStatus('precoStatus', 'Preço atualizado da pesquisa.', 'ok');
+  } else if (dados.fuelPrice) {
     fuelPrice = Number(dados.fuelPrice);
     $('precoValor').textContent = dados.precoValor || `${fuelPrice.toFixed(3)} €/L`;
     $('precoData').textContent = dados.precoData || '';
+    $('precoMorada').textContent = dados.precoMorada || '';
     setStatus('precoStatus', 'Preço restaurado da sessão anterior.', 'ok');
   }
 }
