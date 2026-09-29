@@ -1,6 +1,7 @@
 const BASE = "https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb";
 const STORAGE_KEY = 'boleias_dados';
-const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
+const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+const DIAS_UTEIS = 5; // sábado e domingo só aparecem com o interruptor ligado
 const fallbackFilterState = { combustiveis: false, distritos: false, municipios: false, marcas: false };
 const CONSUMO_ELETRICO_PADRAO = 16; // kWh/100km, valor típico de um elétrico compacto
 
@@ -21,6 +22,8 @@ let mediaNacional = null; // { preco, data, numPostos } do PMD
 let pessoas = []; // nomes únicos
 let carros = Object.create(null); // carro próprio por pessoa: { [nome]: { energia: 'combustao'|'eletrico', consumo } }; quem não tem usa o carro padrão
 let semana = DIAS.map(() => ({ condutor: '', ida: [], volta: [], nota: '' }));
+let fimDeSemana = false;
+let pagamentos = []; // { de, para, valor } da semana, já compensados entre cada par de pessoas
 
 const $ = (id) => document.getElementById(id);
 
@@ -29,6 +32,7 @@ window.addEventListener('load', async () => {
   $('dateBadge').textContent = new Date().toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   carregarDados();
   buildSemana();
+  aplicarFimDeSemana();
   renderPessoas();
   renderCarros();
   renderSemana();
@@ -55,6 +59,11 @@ function wireEvents() {
   $('btnAddPessoa').addEventListener('click', adicionarPessoa);
   $('inputPessoa').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); adicionarPessoa(); }
+  });
+  $('chkFimSemana').addEventListener('change', (e) => {
+    fimDeSemana = e.target.checked;
+    aplicarFimDeSemana();
+    calcularTudo();
   });
   $('btnLimparSemana').addEventListener('click', limparSemana);
   $('btnCopiarResumo').addEventListener('click', copiarResumo);
@@ -567,12 +576,12 @@ function atualizarCarrosInfo() {
 function buildSemana() {
   const grid = $('weekGrid');
   grid.innerHTML = '';
-  const hoje = new Date().getDay(); // 0=Dom, 1=Seg ... 5=Sex
-  const hojeIdx = (hoje >= 1 && hoje <= 5) ? hoje - 1 : -1;
+  const hojeIdx = (new Date().getDay() + 6) % 7; // getDay: 0=Dom → índice 6; 1=Seg → 0
 
   DIAS.forEach((dia, i) => {
     const card = document.createElement('article');
     card.className = 'day-card' + (i === hojeIdx ? ' today' : '');
+    card.id = `dia_${i}`;
 
     const head = document.createElement('div');
     head.className = 'day-head';
@@ -638,6 +647,16 @@ function buildSemana() {
       guardarDados();
     });
   });
+}
+
+function diaAtivo(i) {
+  return i < DIAS_UTEIS || fimDeSemana;
+}
+
+// Mostra/esconde sábado e domingo; os dados ficam guardados mas só contam quando estão visíveis
+function aplicarFimDeSemana() {
+  $('chkFimSemana').checked = fimDeSemana;
+  DIAS.forEach((_, i) => { $(`dia_${i}`).hidden = !diaAtivo(i); });
 }
 
 function renderSemana() {
@@ -738,6 +757,7 @@ function guardarDados() {
     pessoas,
     carros,
     semana,
+    fimDeSemana,
     kmViagem: $('kmViagem').value,
     consumoCarro: $('consumoCarro').value,
     precoKwh: $('precoKwh').value,
@@ -822,6 +842,7 @@ function carregarDados() {
       };
     });
   }
+  fimDeSemana = dados.fimDeSemana === true;
   if (dados.kmViagem) $('kmViagem').value = dados.kmViagem;
   if (dados.consumoCarro) $('consumoCarro').value = dados.consumoCarro;
   if (dados.precoKwh) {
@@ -896,9 +917,10 @@ function calcularTudo() {
   $('custoPorSentido').textContent = custoPadrao ? custoPadrao.toFixed(2) + ' €' : '—';
   atualizarCarrosInfo();
 
-  const totais = {};
+  const dividas = new Map(); // passageiro → Map(condutor → valor)
 
   semana.forEach((dia, i) => {
+    if (!diaAtivo(i)) return;
     const paxIda = dia.ida.filter(p => p !== dia.condutor);
     const paxVolta = dia.volta.filter(p => p !== dia.condutor);
     const todosUnicos = [...new Set([...paxIda, ...paxVolta])];
@@ -939,8 +961,10 @@ function calcularTudo() {
       const total   = (naIda ? custoIda : 0) + (naVolta ? custoVolta : 0);
       const detalhe = naIda && !naVolta ? '(só ida)' : (!naIda && naVolta ? '(só volta)' : '');
 
-      // Acumular totais
-      totais[pessoa] = (totais[pessoa] || 0) + total;
+      // O passageiro paga a sua parte a quem conduziu
+      if (!dividas.has(pessoa)) dividas.set(pessoa, new Map());
+      const doPassageiro = dividas.get(pessoa);
+      doPassageiro.set(dia.condutor, (doPassageiro.get(dia.condutor) || 0) + total);
 
       const item = document.createElement('div');
       item.className = 'gasoleo-item';
@@ -966,32 +990,91 @@ function calcularTudo() {
     celula.appendChild(lines);
   });
 
-  // Totais
-  const grid = $('totaisGrid');
-  grid.innerHTML = '';
-  const entradas = Object.entries(totais);
-  if (entradas.length === 0) {
-    const vazio = document.createElement('span');
-    vazio.className = 'status';
-    vazio.textContent = 'Preenche a semana para ver os totais.';
-    grid.appendChild(vazio);
-  } else {
-    entradas.forEach(([nome, total]) => {
-      const item = document.createElement('div');
-      item.className = 'total-item';
-      const nomeEl = document.createElement('div');
-      nomeEl.className = 'total-nome';
-      nomeEl.textContent = nome;
-      const valEl = document.createElement('div');
-      valEl.className = 'total-valor';
-      valEl.textContent = total.toFixed(2) + ' €';
-      item.appendChild(nomeEl);
-      item.appendChild(valEl);
-      grid.appendChild(item);
-    });
-  }
+  pagamentos = calcularPagamentos(dividas);
+  renderTotais(dividas.size > 0);
 
   guardarDados();
+}
+
+// ── Quem paga a quem ──
+// Posição na lista de pessoas, para ordenar os acertos como a secção Pessoas
+function ordemPessoa(nome) {
+  const i = pessoas.indexOf(nome);
+  return i === -1 ? pessoas.length : i;
+}
+
+// Compensa as dívidas entre cada par de pessoas: se A deve 3 € a B e B deve 1 € a A, A paga 2 € a B
+function calcularPagamentos(dividas) {
+  const deve = (a, b) => (dividas.has(a) && dividas.get(a).get(b)) || 0;
+  const nomes = new Set();
+  dividas.forEach((m, de) => { nomes.add(de); m.forEach((_, para) => nomes.add(para)); });
+  const lista = [...nomes].sort((a, b) => ordemPessoa(a) - ordemPessoa(b));
+
+  const res = [];
+  lista.forEach((a, i) => lista.slice(i + 1).forEach(b => {
+    const diferenca = deve(a, b) - deve(b, a);
+    const valor = Math.round(Math.abs(diferenca) * 100) / 100;
+    if (valor > 0) res.push(diferenca > 0 ? { de: a, para: b, valor } : { de: b, para: a, valor });
+  }));
+  return res.sort((x, y) => ordemPessoa(x.de) - ordemPessoa(y.de) || ordemPessoa(x.para) - ordemPessoa(y.para));
+}
+
+function renderTotais(houveBoleias) {
+  const grid = $('totaisGrid');
+  grid.innerHTML = '';
+  if (pagamentos.length === 0) {
+    const vazio = document.createElement('span');
+    vazio.className = 'status';
+    vazio.textContent = houveBoleias ? 'Tudo acertado: ninguém deve nada.' : 'Preenche a semana para ver os totais.';
+    grid.appendChild(vazio);
+    return;
+  }
+
+  const envolvidos = [];
+  pagamentos.forEach(p => [p.de, p.para].forEach(n => { if (!envolvidos.includes(n)) envolvidos.push(n); }));
+  envolvidos.sort((a, b) => ordemPessoa(a) - ordemPessoa(b));
+
+  envolvidos.forEach(nome => {
+    const paga = pagamentos.filter(p => p.de === nome);
+    const recebe = pagamentos.filter(p => p.para === nome);
+    const soma = (lista) => lista.reduce((t, p) => t + p.valor, 0);
+    const saldo = Math.round((soma(recebe) - soma(paga)) * 100) / 100;
+
+    const item = document.createElement('div');
+    item.className = 'total-item';
+    const nomeEl = document.createElement('div');
+    nomeEl.className = 'total-nome';
+    nomeEl.textContent = nome;
+    const saldoEl = document.createElement('div');
+    saldoEl.className = 'total-saldo';
+    saldoEl.textContent = saldo < 0 ? 'a pagar' : (saldo > 0 ? 'a receber' : 'saldo acertado');
+    const valEl = document.createElement('div');
+    valEl.className = 'total-valor' + (saldo < 0 ? ' paga' : (saldo > 0 ? ' recebe' : ''));
+    valEl.textContent = Math.abs(saldo).toFixed(2) + ' €';
+
+    const linhas = document.createElement('div');
+    linhas.className = 'total-linhas';
+    const addLinha = (texto, valor) => {
+      const linha = document.createElement('div');
+      linha.className = 'total-linha';
+      const t = document.createElement('span');
+      t.textContent = texto;
+      const v = document.createElement('span');
+      v.className = 'total-linha-valor';
+      v.textContent = valor.toFixed(2) + ' €';
+      linha.appendChild(t);
+      linha.appendChild(v);
+      linhas.appendChild(linha);
+    };
+    paga.forEach(p => addLinha('paga a ' + p.para, p.valor));
+    recebe.forEach(p => addLinha('recebe de ' + p.de, p.valor));
+
+    item.appendChild(nomeEl);
+    item.appendChild(saldoEl);
+    item.appendChild(valEl);
+    item.appendChild(linhas);
+    grid.appendChild(item);
+  });
 }
 
 // ── Limpar ──
@@ -1006,16 +1089,14 @@ function limparSemana() {
 function copiarResumo() {
   const linhas = ['RESUMO BOLEIAS\n'];
   semana.forEach((dia, i) => {
-    if (!dia.condutor) return;
+    if (!dia.condutor || !diaAtivo(i)) return;
     const gas = $(`gasoleo_${i}`).innerText.replace(/\n/g, ' | ');
     linhas.push(`${DIAS[i]}: ${dia.condutor} leva | Ida: ${dia.ida.join(', ')} | Volta: ${dia.volta.join(', ')} | ${gas}`);
   });
 
-  const grid = $('totaisGrid');
-  linhas.push('\nTOTAIS:');
-  grid.querySelectorAll('.total-item').forEach(el => {
-    linhas.push(`${el.querySelector('.total-nome').textContent}: ${el.querySelector('.total-valor').textContent}`);
-  });
+  linhas.push('\nPAGAMENTOS:');
+  if (pagamentos.length === 0) linhas.push('Ninguém deve nada.');
+  pagamentos.forEach(p => linhas.push(`${p.de} paga ${p.valor.toFixed(2)} € a ${p.para}`));
 
   navigator.clipboard.writeText(linhas.join('\n')).then(() => {
     alert('Resumo copiado!');

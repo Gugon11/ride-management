@@ -2,7 +2,7 @@
 
 Página web estática (`index.html` + `styles.css` + `app.js`) para dividir o custo de combustível entre colegas que partilham boleias semanais.
 
-Usa o preço real do combustível da [API da DGEG](https://precoscombustiveis.dgeg.gov.pt/) (ou o preço da eletricidade, para carros elétricos), a distância da viagem e o consumo do carro de quem conduz para calcular quanto cada pessoa deve pagar, dia a dia, de segunda a sexta.
+Usa o preço real do combustível da [API da DGEG](https://precoscombustiveis.dgeg.gov.pt/) (ou o preço da eletricidade, para carros elétricos), a distância da viagem e o consumo do carro de quem conduz para calcular quanto cada pessoa deve pagar e a quem, dia a dia, de segunda a sexta (e ao fim de semana, se for preciso).
 
 Não tem backend nem base de dados. Tudo corre no browser.
 
@@ -13,8 +13,8 @@ Não tem backend nem base de dados. Tudo corre no browser.
 3. Em **Parâmetros**, preencher os km totais (ida + volta) e o consumo do carro padrão.
 4. Em **Pessoas**, adicionar uma vez os nomes de quem partilha as boleias.
 5. Em **Carros**, cada pessoa usa o carro padrão por defeito. Para quem tem outro carro, escolher **⛽ Combustão** (consumo próprio, preço do combustível) ou **⚡ Elétrico** (consumo em kWh/100km, preço da eletricidade).
-6. Em cada dia da **Semana**, escolher quem conduz no dropdown e tocar nos nomes para marcar quem vai na ida e na volta. O botão **todos** marca/desmarca toda a gente num sentido; **⧉ copiar** repete o dia anterior.
-7. Os valores por pessoa aparecem automaticamente em cada dia (com o custo por sentido do carro desse dia) e no **Total Semana**.
+6. Em cada dia da **Semana**, escolher quem conduz no dropdown e tocar nos nomes para marcar quem vai na ida e na volta. O botão **todos** marca/desmarca toda a gente num sentido; **⧉ copiar** repete o dia anterior. Para ter também sábado e domingo, ligar **Sábado e domingo** ao lado do título da secção.
+7. Os valores por pessoa aparecem automaticamente em cada dia (com o custo por sentido do carro desse dia). O **Total Semana** mostra, para cada pessoa, quanto tem a pagar ou a receber e a quem.
 8. **Copiar Resumo** gera um texto pronto a colar numa mensagem ou email.
 
 ## Cálculo
@@ -38,7 +38,9 @@ Nos combustíveis vendidos ao kg ou ao m³ (GNC, GNL), a unidade acompanha o com
 
 O condutor entra na divisão mas não aparece como linha de custo. O custo da ida divide-se por quem vai na ida + condutor; o mesmo para a volta. Se alguém vai nos dois sentidos, soma os dois valores. Se vai só num, aparece anotação `(só ida)` ou `(só volta)`.
 
-Os valores diários acumulam-se no **Total Semana**.
+Cada passageiro deve a sua parte a quem conduziu nesse dia. No **Total Semana**, as dívidas entre cada par de pessoas compensam-se: se A deve 3 € a B (porque B conduziu) e B deve 1 € a A (porque A conduziu), fica só um pagamento: A paga 2 € a B. Cada cartão mostra o saldo da pessoa (a pagar ou a receber) e as linhas `paga a …` / `recebe de …`. O **Copiar Resumo** inclui a lista de pagamentos.
+
+Os pagamentos só compensam pessoas que andaram no carro uma da outra; ninguém é mandado pagar a alguém com quem não andou.
 
 ## Persistência
 
@@ -46,7 +48,8 @@ Tudo é guardado no `localStorage` com a chave `boleias_dados` (formato `version
 
 - Lista de pessoas
 - Carros por pessoa (`carros: { nome: { energia: 'combustao' | 'eletrico', consumo } }`); quem não aparece usa o carro padrão
-- Dados da semana: condutor, ida, volta e nota de cada dia
+- Dados da semana: condutor, ida, volta e nota de cada dia (segunda a domingo)
+- Se o sábado e o domingo estão visíveis (`fimDeSemana`)
 - Parâmetros: km e consumo do carro padrão
 - Preço da eletricidade (€/kWh)
 - Filtros de combustível: tipo, distrito, município, marca, posto
@@ -89,7 +92,7 @@ Todas as respostas têm o formato `{ status, mensagem, resultado }`.
 
 ## Layout
 
-A semana é uma grelha de cards de dia (um por coluna em mobile, várias colunas em desktop). O dia atual aparece destacado com a etiqueta **hoje**.
+A semana é uma grelha de cards de dia (um por coluna em mobile, várias colunas em desktop). O dia atual aparece destacado com a etiqueta **hoje**. Sábado e domingo só aparecem com o interruptor ligado; desligado, os dados desses dias ficam guardados mas não entram nas contas nem no resumo.
 
 ## Limitações
 

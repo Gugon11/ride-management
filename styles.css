@@ -16,6 +16,7 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; } /* senão .day-card/.price-box com display:flex ignoram o hidden */
 
 body {
   background: var(--bg);
@@ -100,6 +101,26 @@ header {
   flex: 1;
   height: 1px;
   background: var(--border);
+}
+
+.toggle-fds {
+  order: 2; /* depois da linha */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  color: var(--muted2);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.toggle-fds input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 /* ── CARD ── */
@@ -512,9 +533,9 @@ input:disabled { background: var(--surface2); color: var(--muted); cursor: not-a
 }
 
 .totals-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
-  flex-wrap: wrap;
   margin-top: 14px;
 }
 
@@ -523,7 +544,6 @@ input:disabled { background: var(--surface2); color: var(--muted); cursor: not-a
   border: 1px solid var(--border2);
   border-radius: 8px;
   padding: 12px 18px;
-  min-width: 140px;
 }
 .total-nome {
   font-size: 10px;
@@ -532,12 +552,36 @@ input:disabled { background: var(--surface2); color: var(--muted); cursor: not-a
   color: var(--muted);
   margin-bottom: 4px;
 }
+.total-saldo {
+  font-size: 11px;
+  color: var(--muted);
+}
 .total-valor {
   font-size: 22px;
   font-weight: 300;
   color: var(--accent);
   letter-spacing: -0.5px;
 }
+.total-valor.paga { color: var(--red); }
+.total-valor.recebe { color: var(--green); }
+
+.total-linhas {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.total-linha {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted2);
+}
+.total-linha span:first-child { overflow-wrap: anywhere; }
+.total-linha-valor { font-weight: 600; color: var(--text); white-space: nowrap; }
 
 /* ── STATUS ── */
 .status {
@@ -586,7 +630,7 @@ input:disabled { background: var(--surface2); color: var(--muted); cursor: not-a
   .total-valor { font-size: 18px; }
   .totals-card { padding: 14px; }
   .totals-grid { gap: 10px; }
-  .total-item { min-width: 110px; padding: 10px 14px; }
+  .total-item { padding: 10px 14px; }
   .btn-row { flex-direction: column; width: 100%; }
   .btn-row .btn { width: 100%; justify-content: center; }
   .section-label { margin-bottom: 10px; }
