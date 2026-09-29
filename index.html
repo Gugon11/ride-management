@@ -88,6 +88,28 @@
     </div>
   </div>
 
+  <!-- SECÇÃO: ELETRICIDADE -->
+  <div class="section-label mt">Eletricidade</div>
+  <div class="card">
+    <div class="grid-2">
+      <div class="field">
+        <label for="selTarifaKwh">Tarifa</label>
+        <select id="selTarifaKwh">
+          <option value="">Personalizado</option>
+          <option value="0.20">Casa · tarifa simples (~0,20)</option>
+          <option value="0.12">Casa · bi-horário, vazio (~0,12)</option>
+          <option value="0.33">Posto público AC (~0,33)</option>
+          <option value="0.55">Posto público DC rápido (~0,55)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="precoKwh">Preço (€/kWh)</label>
+        <input type="number" id="precoKwh" step="0.01" min="0" placeholder="ex.: 0.20">
+      </div>
+    </div>
+    <div class="hint">Só é usado nos carros elétricos (definidos em Carros). Os valores sugeridos são indicativos — confirma na fatura ou na app de carregamento.</div>
+  </div>
+
   <!-- SECÇÃO: PARÂMETROS -->
   <div class="section-label mt">Parâmetros</div>
   <div class="card">
@@ -97,11 +119,11 @@
         <input type="number" id="kmViagem" value="100" min="1">
       </div>
       <div class="field">
-        <label for="consumoCarro">Consumo (L/100km)</label>
+        <label for="consumoCarro">Consumo padrão (<span id="unidConsumo">L</span>/100km)</label>
         <input type="number" id="consumoCarro" value="5.5" step="0.1" min="0.1">
       </div>
       <div class="price-box" style="min-width:unset;">
-        <div class="lbl">Custo por sentido</div>
+        <div class="lbl">Custo por sentido (padrão)</div>
         <div class="val" id="custoPorSentido">—</div>
       </div>
     </div>
@@ -116,6 +138,13 @@
     </div>
     <div class="chips" id="pessoasChips"></div>
     <div class="hint">Adiciona aqui os nomes uma vez — depois basta tocar nos nomes em cada dia.</div>
+  </div>
+
+  <!-- SECÇÃO: CARROS -->
+  <div class="section-label mt">Carros</div>
+  <div class="card">
+    <div class="carros-list" id="carrosList"></div>
+    <div class="hint">Por defeito, cada pessoa conduz o carro padrão (consumo dos Parâmetros + preço do combustível). Escolhe ⛽ ou ⚡ para quem tem um carro diferente ou elétrico.</div>
   </div>
 
   <!-- SECÇÃO: SEMANA -->

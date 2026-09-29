@@ -151,6 +151,7 @@ select:focus, input:focus, textarea:focus {
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
 select:disabled { opacity: 0.35; cursor: not-allowed; }
+input:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; }
 
 /* ── PRICE BOX ── */
 .price-row {
@@ -330,6 +331,41 @@ select:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 .chip-todos:hover { color: var(--accent); }
 
+/* ── CARROS ── */
+.carros-list { display: flex; flex-direction: column; gap: 10px; }
+
+.carro-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) 1.3fr 1.3fr minmax(130px, auto);
+  grid-template-areas: "nome energia consumo custo";
+  gap: 10px;
+  align-items: center;
+}
+.carro-nome {
+  grid-area: nome;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.carro-row select { grid-area: energia; }
+.carro-consumo { grid-area: consumo; position: relative; }
+.carro-consumo input { padding-right: 88px; }
+.carro-unid {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.carro-custo {
+  grid-area: custo;
+  font-size: 12px;
+  color: var(--muted2);
+  text-align: right;
+  white-space: nowrap;
+}
+
 /* ── SEMANA: GRELHA DE DIAS ── */
 .week-grid {
   display: grid;
@@ -426,6 +462,16 @@ select:disabled { opacity: 0.35; cursor: not-allowed; }
   background: var(--surface2);
   border-radius: 8px;
   padding: 10px 12px;
+}
+
+.day-carro {
+  font-size: 11px;
+  color: var(--muted2);
+}
+.day-carro + .gasoleo-lines {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
 }
 
 .gasoleo-lines { display: flex; flex-direction: column; gap: 4px; }
@@ -548,6 +594,16 @@ select:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .pessoa-add { flex-direction: column; }
   .pessoa-add .btn { justify-content: center; }
+
+  .carro-row {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "nome custo" "energia consumo";
+    gap: 6px 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed var(--border2);
+  }
+  .carro-row:last-child { padding-bottom: 0; border-bottom: none; }
+  .carro-consumo input { padding-right: 76px; }
 
   /* Chips maiores para tocar com o dedo */
   .chip { padding: 8px 16px; font-size: 13px; }

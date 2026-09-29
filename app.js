@@ -2,6 +2,7 @@ const BASE = "https://precoscombustiveis.dgeg.gov.pt/api/PrecoComb";
 const STORAGE_KEY = 'boleias_dados';
 const DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 const fallbackFilterState = { combustiveis: false, distritos: false, municipios: false, marcas: false };
+const CONSUMO_ELETRICO_PADRAO = 16; // kWh/100km, valor típico de um elétrico compacto
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -18,6 +19,7 @@ let postosList = []; // resultados completos de PesquisarPostos (com preço, mor
 let fuelPrice = null;
 let mediaNacional = null; // { preco, data, numPostos } do PMD
 let pessoas = []; // nomes únicos
+let carros = Object.create(null); // carro próprio por pessoa: { [nome]: { energia: 'combustao'|'eletrico', consumo } }; quem não tem usa o carro padrão
 let semana = DIAS.map(() => ({ condutor: '', ida: [], volta: [], nota: '' }));
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +30,7 @@ window.addEventListener('load', async () => {
   carregarDados();
   buildSemana();
   renderPessoas();
+  renderCarros();
   renderSemana();
   wireEvents();
   await carregarFiltros();
@@ -47,6 +50,8 @@ function wireEvents() {
   $('btnUsarMedia').addEventListener('click', usarMediaNacional);
   $('kmViagem').addEventListener('input', calcularTudo);
   $('consumoCarro').addEventListener('input', calcularTudo);
+  $('selTarifaKwh').addEventListener('change', onTarifaKwhChange);
+  $('precoKwh').addEventListener('input', () => { sincronizarTarifaKwh(); calcularTudo(); });
   $('btnAddPessoa').addEventListener('click', adicionarPessoa);
   $('inputPessoa').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); adicionarPessoa(); }
@@ -156,7 +161,19 @@ async function carregarFiltros() {
 function onCombChange() {
   atualizarPostosSeReady();
   carregarMediaNacional();
-  guardarDados();
+  calcularTudo(); // atualiza as unidades (L, kg, m3) e guarda
+}
+
+// Unidade do combustível escolhido: litro por defeito; GNC/GNL trazem "€/kg" ou "€/m3" no nome
+function unidadeCombustivel() {
+  const sel = $('selComb');
+  const opt = sel.options[sel.selectedIndex];
+  const m = opt && opt.text.match(/€\/\s*(kg|m3)/i);
+  return m ? m[1].toLowerCase() : 'L';
+}
+
+function formatarPrecoComb(preco) {
+  return preco.toFixed(3) + ' €/' + unidadeCombustivel();
 }
 
 function onDistritoChange() {
@@ -276,7 +293,7 @@ function aplicarPrecoDoPosto(p) {
   const preco = parseFloat(String(p.Preco || '').replace(',', '.'));
   if (!isFinite(preco) || preco <= 0) return false;
   fuelPrice = preco;
-  $('precoValor').textContent = preco.toFixed(3) + ' €/L';
+  $('precoValor').textContent = formatarPrecoComb(preco);
   $('precoData').textContent = 'Atualizado: ' + (p.DataAtualizacao || '');
   $('precoMorada').textContent = [p.Morada, p.Localidade].filter(Boolean).join(', ');
   return true;
@@ -299,7 +316,7 @@ async function carregarMediaNacional() {
     if (!dia || !isFinite(preco) || preco <= 0) { box.hidden = true; return; }
 
     mediaNacional = { preco, data: dia.Data, numPostos: dia.NumPostos };
-    $('mediaValor').textContent = preco.toFixed(3) + ' €/L';
+    $('mediaValor').textContent = formatarPrecoComb(preco);
     $('mediaData').textContent = `${dia.Data} · ${dia.NumPostos} postos`;
     box.hidden = false;
   } catch (e) {
@@ -311,7 +328,7 @@ async function carregarMediaNacional() {
 function usarMediaNacional() {
   if (!mediaNacional) return;
   fuelPrice = mediaNacional.preco;
-  $('precoValor').textContent = mediaNacional.preco.toFixed(3) + ' €/L';
+  $('precoValor').textContent = formatarPrecoComb(mediaNacional.preco);
   $('precoData').textContent = 'Média nacional de ' + mediaNacional.data;
   $('precoMorada').textContent = '';
   $('selPosto').value = '';
@@ -346,7 +363,7 @@ async function atualizarPreco() {
     }
 
     fuelPrice = parseFloat(comb.Preco.replace(',', '.'));
-    $('precoValor').textContent = fuelPrice.toFixed(3) + ' €/L';
+    $('precoValor').textContent = formatarPrecoComb(fuelPrice);
     $('precoData').textContent = 'Atualizado: ' + comb.DataAtualizacao;
     setStatus('precoStatus', 'Atualizado', 'ok');
 
@@ -370,18 +387,21 @@ function adicionarPessoa() {
   input.value = '';
   input.focus();
   renderPessoas();
+  renderCarros();
   renderSemana();
   calcularTudo();
 }
 
 function removerPessoa(nome) {
   pessoas = pessoas.filter(p => p !== nome);
+  delete carros[nome];
   semana.forEach(d => {
     if (d.condutor === nome) d.condutor = '';
     d.ida = d.ida.filter(p => p !== nome);
     d.volta = d.volta.filter(p => p !== nome);
   });
   renderPessoas();
+  renderCarros();
   renderSemana();
   calcularTudo();
 }
@@ -408,6 +428,138 @@ function renderPessoas() {
     chip.appendChild(x);
     chip.addEventListener('click', () => removerPessoa(nome));
     cont.appendChild(chip);
+  });
+}
+
+// ── Eletricidade ──
+function getPrecoKwh() {
+  const v = parseFloat($('precoKwh').value);
+  return isFinite(v) && v > 0 ? v : null;
+}
+
+function onTarifaKwhChange() {
+  const v = $('selTarifaKwh').value;
+  if (v) $('precoKwh').value = v;
+  calcularTudo();
+}
+
+// Mostra a tarifa sugerida que corresponde ao preço escrito, ou "Personalizado"
+function sincronizarTarifaKwh() {
+  const preco = getPrecoKwh();
+  const sel = $('selTarifaKwh');
+  const opt = [...sel.options].find(o => o.value && parseFloat(o.value) === preco);
+  sel.value = opt ? opt.value : '';
+}
+
+// ── Carros ──
+function carroPadrao() {
+  return { energia: 'combustao', consumo: parseFloat($('consumoCarro').value) || 0 };
+}
+
+function carroDe(nome) {
+  return carros[nome] || carroPadrao();
+}
+
+function unidadeConsumo(carro) {
+  return (carro.energia === 'eletrico' ? 'kWh' : unidadeCombustivel()) + '/100km';
+}
+
+// Mesma fórmula para os dois: km × consumo/100 × preço (€/L ou €/kWh)
+function custoPorSentidoCarro(carro, kmSentido) {
+  const preco = carro.energia === 'eletrico' ? getPrecoKwh() : fuelPrice;
+  if (!preco || !carro.consumo || !kmSentido) return null;
+  return kmSentido * carro.consumo / 100 * preco;
+}
+
+function renderCarros() {
+  const cont = $('carrosList');
+  cont.innerHTML = '';
+  if (pessoas.length === 0) {
+    const vazio = document.createElement('span');
+    vazio.className = 'chips-empty';
+    vazio.textContent = 'Adiciona pessoas na secção acima.';
+    cont.appendChild(vazio);
+    return;
+  }
+
+  pessoas.forEach(nome => {
+    const row = document.createElement('div');
+    row.className = 'carro-row';
+    row.dataset.nome = nome;
+
+    const nomeEl = document.createElement('span');
+    nomeEl.className = 'carro-nome';
+    nomeEl.textContent = nome;
+
+    const sel = document.createElement('select');
+    sel.setAttribute('aria-label', 'Carro de ' + nome);
+    [['', 'Padrão'], ['combustao', '⛽ Combustão'], ['eletrico', '⚡ Elétrico']].forEach(([v, t]) => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = t;
+      sel.appendChild(opt);
+    });
+    sel.value = carros[nome] ? carros[nome].energia : '';
+
+    const consumoWrap = document.createElement('div');
+    consumoWrap.className = 'carro-consumo';
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.step = '0.1';
+    input.min = '0.1';
+    input.setAttribute('aria-label', 'Consumo do carro de ' + nome);
+    if (carros[nome]) input.value = carros[nome].consumo || '';
+    const unid = document.createElement('span');
+    unid.className = 'carro-unid';
+    consumoWrap.appendChild(input);
+    consumoWrap.appendChild(unid);
+
+    const custo = document.createElement('span');
+    custo.className = 'carro-custo';
+
+    sel.addEventListener('change', () => onCarroEnergiaChange(nome, sel.value, input));
+    input.addEventListener('input', () => {
+      if (!carros[nome]) return;
+      carros[nome].consumo = parseFloat(input.value) || 0;
+      calcularTudo();
+    });
+
+    row.appendChild(nomeEl);
+    row.appendChild(sel);
+    row.appendChild(consumoWrap);
+    row.appendChild(custo);
+    cont.appendChild(row);
+  });
+  atualizarCarrosInfo();
+}
+
+function onCarroEnergiaChange(nome, energia, input) {
+  if (!energia) {
+    delete carros[nome];
+  } else if (!carros[nome] || carros[nome].energia !== energia) {
+    const consumo = energia === 'eletrico' ? CONSUMO_ELETRICO_PADRAO : carroPadrao().consumo;
+    carros[nome] = { energia, consumo };
+    input.value = consumo || '';
+  }
+  renderSemana(); // ícone do condutor (🚗 / ⚡)
+  calcularTudo();
+}
+
+// Atualiza unidade, custo e o consumo mostrado para quem usa o carro padrão
+function atualizarCarrosInfo() {
+  const kmSentido = (parseFloat($('kmViagem').value) || 0) / 2;
+  $('carrosList').querySelectorAll('.carro-row').forEach(row => {
+    const nome = row.dataset.nome;
+    const carro = carroDe(nome);
+    const input = row.querySelector('input');
+    input.disabled = !carros[nome];
+    if (!carros[nome]) input.value = carro.consumo || '';
+    row.querySelector('.carro-unid').textContent = unidadeConsumo(carro);
+
+    const custo = custoPorSentidoCarro(carro, kmSentido);
+    row.querySelector('.carro-custo').textContent = custo
+      ? custo.toFixed(2) + ' € / sentido'
+      : (carro.energia === 'eletrico' && !getPrecoKwh() ? 'falta preço €/kWh' : '—');
   });
 }
 
@@ -534,7 +686,7 @@ function renderChipsDia(i, sentido) {
     chip.type = 'button';
     if (nome === dia.condutor) {
       chip.className = 'chip driver';
-      chip.textContent = '🚗 ' + nome;
+      chip.textContent = (carroDe(nome).energia === 'eletrico' ? '⚡ ' : '🚗 ') + nome;
       chip.title = nome + ' é o condutor';
       chip.disabled = true;
     } else {
@@ -582,11 +734,13 @@ function autoResize(el) {
 // ── Persistência (localStorage) ──
 function guardarDados() {
   const dados = {
-    version: 2,
+    version: 3,
     pessoas,
+    carros,
     semana,
     kmViagem: $('kmViagem').value,
     consumoCarro: $('consumoCarro').value,
+    precoKwh: $('precoKwh').value,
     selComb: $('selComb').value,
     selDistrito: $('selDistrito').value,
     selMunicipio: $('selMunicipio').value,
@@ -611,11 +765,17 @@ function getDadosGuardados() {
   }
 }
 
+function migrarDados(dados) {
+  if (!dados) return dados;
+  if (!dados.version || dados.version < 2) dados = migrarV1(dados);
+  // v2 → v3: carros por pessoa e preço da eletricidade; sem carros, todos usam o carro padrão
+  if (dados.version === 2) dados = { ...dados, version: 3, carros: {} };
+  return dados;
+}
+
 // Converte o formato antigo (campos de texto com nomes separados por vírgula)
 // para o formato v2 (lista de pessoas + arrays por dia).
-function migrarDados(dados) {
-  if (!dados || dados.version === 2) return dados;
-
+function migrarV1(dados) {
   const parseNomes = (str) => (str || '').split(',').map(n => n.trim()).filter(n => n);
   const pessoasMig = [];
   const addPessoa = (nome) => {
@@ -644,6 +804,13 @@ function carregarDados() {
   if (!dados) return;
 
   if (Array.isArray(dados.pessoas)) pessoas = dados.pessoas;
+  if (dados.carros && typeof dados.carros === 'object') {
+    carros = Object.create(null);
+    Object.entries(dados.carros).forEach(([nome, c]) => {
+      if (!pessoas.includes(nome) || !c || (c.energia !== 'combustao' && c.energia !== 'eletrico')) return;
+      carros[nome] = { energia: c.energia, consumo: Number(c.consumo) || 0 };
+    });
+  }
   if (Array.isArray(dados.semana)) {
     semana = DIAS.map((_, i) => {
       const d = dados.semana[i] || {};
@@ -657,6 +824,10 @@ function carregarDados() {
   }
   if (dados.kmViagem) $('kmViagem').value = dados.kmViagem;
   if (dados.consumoCarro) $('consumoCarro').value = dados.consumoCarro;
+  if (dados.precoKwh) {
+    $('precoKwh').value = dados.precoKwh;
+    sincronizarTarifaKwh();
+  }
 }
 
 async function carregarFiltrosGuardados() {
@@ -706,7 +877,7 @@ async function carregarFiltrosGuardados() {
     setStatus('precoStatus', 'Preço atualizado da pesquisa.', 'ok');
   } else if (dados.fuelPrice) {
     fuelPrice = Number(dados.fuelPrice);
-    $('precoValor').textContent = dados.precoValor || `${fuelPrice.toFixed(3)} €/L`;
+    $('precoValor').textContent = dados.precoValor || formatarPrecoComb(fuelPrice);
     $('precoData').textContent = dados.precoData || '';
     $('precoMorada').textContent = dados.precoMorada || '';
     setStatus('precoStatus', 'Preço restaurado da sessão anterior.', 'ok');
@@ -716,13 +887,14 @@ async function carregarFiltrosGuardados() {
 // ── Cálculo principal ──
 function calcularTudo() {
   const km = parseFloat($('kmViagem').value) || 0;
-  const consumo = parseFloat($('consumoCarro').value) || 0;
-  const preco = fuelPrice;
   const kmSentido = km / 2;
 
-  // Custo por sentido
-  const custoPorSentido = preco ? (kmSentido * consumo / 100 * preco) : null;
-  $('custoPorSentido').textContent = custoPorSentido ? custoPorSentido.toFixed(2) + ' €' : '—';
+  $('unidConsumo').textContent = unidadeCombustivel();
+
+  // Custo por sentido do carro padrão
+  const custoPadrao = custoPorSentidoCarro(carroPadrao(), kmSentido);
+  $('custoPorSentido').textContent = custoPadrao ? custoPadrao.toFixed(2) + ' €' : '—';
+  atualizarCarrosInfo();
 
   const totais = {};
 
@@ -734,13 +906,26 @@ function calcularTudo() {
     const celula = $(`gasoleo_${i}`);
     celula.innerHTML = '';
 
-    if (!dia.condutor || todosUnicos.length === 0 || !custoPorSentido) {
+    // O custo depende do carro de quem conduz nesse dia
+    const carro = dia.condutor ? carroDe(dia.condutor) : null;
+    const custoPorSentido = carro ? custoPorSentidoCarro(carro, kmSentido) : null;
+
+    if (!custoPorSentido) {
       const vazio = document.createElement('span');
       vazio.className = 'status';
-      vazio.textContent = '—';
+      vazio.textContent = carro && carro.energia === 'eletrico' && !getPrecoKwh()
+        ? 'Falta o preço da eletricidade.'
+        : '—';
       celula.appendChild(vazio);
       return;
     }
+
+    const carroEl = document.createElement('div');
+    carroEl.className = 'day-carro';
+    carroEl.textContent = (carro.energia === 'eletrico' ? '⚡ ' : '⛽ ') + custoPorSentido.toFixed(2) + ' € por sentido';
+    celula.appendChild(carroEl);
+
+    if (todosUnicos.length === 0) return;
 
     const custoIda   = paxIda.length   > 0 ? custoPorSentido / (paxIda.length + 1)   : 0;
     const custoVolta = paxVolta.length > 0 ? custoPorSentido / (paxVolta.length + 1) : 0;
